@@ -1,0 +1,27 @@
+<Project>
+
+  <ItemGroup Label="Microsoft DI, configuration and options dependencies">
+    <PackageReference Update="Microsoft.Extensions.Configuration.Abstractions" Version="$(DotNetCorePackageVersion)" />
+    <PackageReference Update="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(DotNetCorePackageVersion)" />
+    <PackageReference Update="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(DotNetCorePackageVersion)" />
+  </ItemGroup>
+  
+  <ItemGroup Label="Microsoft AspNetCore dependencies ">
+    <PackageReference Update="Microsoft.AspNetCore.Mvc.Versioning" Version="$(MicrosoftAspNetCoreMvcVersioningPackageVersion)" />
+    <PackageReference Update="Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer" Version="$(MicrosoftAspNetCoreMvcVersioningApiExplorerPackageVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Microsoft ServiceFabric dependencies">
+    <PackageReference Update="Microsoft.ServiceFabric" Version="$(MicrosoftServiceFabricPackageVersion)" />
+  </ItemGroup>
+  
+  <ItemGroup Label="Newtonsoft dependencies">
+    <PackageReference Update="Newtonsoft.Json" Version="$(NewtonsoftJsonPackageVersion)" />
+  </ItemGroup>
+  
+  <ItemGroup Label="Swashbuckle AspNetCore dependencies">
+    <PackageReference Update="Swashbuckle.AspNetCore" Version="$(SwashbuckleAspNetCorePackageVersion)" />
+    <PackageReference Update="Swashbuckle.AspNetCore.Filters" Version="$(SwashbuckleAspNetCoreFiltersPackageVersion)" />
+  </ItemGroup>
+
+</Project>

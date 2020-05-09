@@ -1,0 +1,12 @@
+# Remove the line below if you want to inherit .editorconfig settings from higher 
+directories
+root = true
+
+# C# files
+[*.cs]
+
+# this. and Me. preferences
+dotnet_style_qualification_for_field = false:silent
+dotnet_style_qualification_for_property = false:silent
+dotnet_style_qualification_for_method = false:silent
+dotnet_style_qualification_for_event = false:silent

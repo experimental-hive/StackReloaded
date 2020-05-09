@@ -1,0 +1,53 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29324.140
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EC7183CD-7C5F-4381-836A-8A3869601000}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DataStore", "DataStore", "{227157C2-83E9-433B-BB0E-170FE2BC5227}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B5385A2D-FBF2-4CD4-950D-C20F78AE5A2E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackReloaded.DataStore.StorageEngine", "..\DataStore\src\StackReloaded.DataStore.StorageEngine\StackReloaded.DataStore.StorageEngine.csproj", "{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0387EDFC-BFD3-43EC-A3E3-5C0910E5327C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackReloaded.DataStore.StorageEngine.UnitTests", "..\DataStore\test\StackReloaded.DataStore.StorageEngine.UnitTests\StackReloaded.DataStore.StorageEngine.UnitTests.csproj", "{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Debug|x64.ActiveCfg = Debug|x64
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Debug|x64.Build.0 = Debug|x64
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Release|x64.ActiveCfg = Release|x64
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87}.Release|x64.Build.0 = Release|x64
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Debug|x64.Build.0 = Debug|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Release|x64.ActiveCfg = Release|Any CPU
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{227157C2-83E9-433B-BB0E-170FE2BC5227} = {EC7183CD-7C5F-4381-836A-8A3869601000}
+		{B5385A2D-FBF2-4CD4-950D-C20F78AE5A2E} = {227157C2-83E9-433B-BB0E-170FE2BC5227}
+		{4DF57FC0-43E7-4261-97ED-A0FA45C69E87} = {B5385A2D-FBF2-4CD4-950D-C20F78AE5A2E}
+		{0387EDFC-BFD3-43EC-A3E3-5C0910E5327C} = {227157C2-83E9-433B-BB0E-170FE2BC5227}
+		{475C6DB5-C8F1-45AB-A2B4-DE992D884C04} = {0387EDFC-BFD3-43EC-A3E3-5C0910E5327C}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,34 @@
+﻿<Project>
+
+  <PropertyGroup Label="Common">
+    <Company></Company>
+    <Product>StackReloaded Blocks</Product>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Repo">
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <RepoRelativeProjectDir>$([MSBuild]::MakeRelative($(RepoRoot), $(MSBuildProjectDirectory)))</RepoRelativeProjectDir>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Project type conventions">
+    <IsReferenceAssemblyProject Condition="$(MSBuildProjectDirectory.EndsWith('ref'))">true</IsReferenceAssemblyProject>
+    <OutDirName Condition="'$(IsReferenceAssemblyProject)' == 'true'">$(MSBuildProjectName)-ref</OutDirName>
+    <IsBenchmarkProject Condition="$(MSBuildProjectName.EndsWith('.Performance')) or $(RepoRelativeProjectDir.Contains('perf'))">true</IsBenchmarkProject>
+    <IsTestProject Condition="$(MSBuildProjectName.EndsWith('Tests'))">true</IsTestProject>
+    <IsUnitTestProject Condition="$(MSBuildProjectName.EndsWith('.UnitTests'))">true</IsUnitTestProject>
+    <IsSampleProject Condition="$(RepoRelativeProjectDir.Contains('sample'))">true</IsSampleProject>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Warnings and errors">
+    <WarnOnPackingNonPackableProject>true</WarnOnPackingNonPackableProject>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Don't make missing XML docs a fatal build error, but still surface so we have visibility into undocumented APIs. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CS1591</WarningsNotAsErrors>
+    <!-- xUnit1004 = warns about skipped tests. Make this a non-fatal build warning. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);xUnit1004</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <Import Project="eng\Versions.props" />
+  <Import Project="eng\CSharp.Common.props"  Condition="'$(MSBuildProjectExtension)' == '.csproj'" />
+
+</Project>

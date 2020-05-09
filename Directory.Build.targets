@@ -1,0 +1,5 @@
+<Project>
+
+  <Import Project="eng\CSharp.Common.targets"  Condition="'$(MSBuildProjectExtension)' == '.csproj'" />
+
+</Project>
