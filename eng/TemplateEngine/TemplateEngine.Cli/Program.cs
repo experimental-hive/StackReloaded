@@ -107,7 +107,7 @@ namespace TemplateEngine.Cli
 
             if (response.ExitCode == 0)
             {
-                var repoPath = response.StdOut.Replace("/", "\\");
+                var repoPath = response.StdOut.Replace("/", "\\", StringComparison.Ordinal);
                 var repoName = Path.GetFileName(repoPath);
 
                 if (repoName == "StackReloaded")
@@ -186,10 +186,10 @@ namespace TemplateEngine.Cli
         {
             var readMeFilePath = Path.Combine(context.TopicPath, "README.md");
             var readMeInitContent = GetManifestResourceText("Topic.README.init.md.txt");
-            readMeInitContent = readMeInitContent.Replace("##Topic##", context.Topic);
+            readMeInitContent = readMeInitContent.Replace("##Topic##", context.Topic, StringComparison.Ordinal);
 
             var readMeAppendContent = GetManifestResourceText("Topic.README.append.md.txt");
-            readMeAppendContent = readMeAppendContent.Replace("##BuildingBlock##", context.BuildingBlockNamespace);
+            readMeAppendContent = readMeAppendContent.Replace("##BuildingBlock##", context.BuildingBlockNamespace, StringComparison.Ordinal);
 
             if (File.Exists(readMeFilePath))
             {
@@ -261,7 +261,7 @@ namespace TemplateEngine.Cli
 
                 if (topicToCompare.StartsWith('['))
                 {
-                    topicToCompare = topicToCompare.Substring(0, topicToCompare.IndexOf(']')).Trim('[');
+                    topicToCompare = topicToCompare.Substring(0, topicToCompare.IndexOf(']', StringComparison.Ordinal)).Trim('[');
                 }
 
                 var compareResult = string.Compare(topic, topicToCompare, StringComparison.InvariantCultureIgnoreCase);
@@ -310,7 +310,7 @@ namespace TemplateEngine.Cli
             WriteTemplateFile(
                 manifestResourceStreamName: "Topic.src.StackReloaded.BuildingBlock.StackReloaded.BuildingBlock.csproj.txt",
                 filePath: Path.Combine(directoryPath, $"StackReloaded.{context.BuildingBlockNamespace}.csproj"),
-                transform: content => content.Replace("##BuildingBlock##", context.BuildingBlockNamespace));
+                transform: content => content.Replace("##BuildingBlock##", context.BuildingBlockNamespace, StringComparison.Ordinal));
 
             WriteTemplateFile(
                 manifestResourceStreamName: "Topic.src.StackReloaded.BuildingBlock.StackReloaded.BuildingBlock.version.txt",
@@ -342,7 +342,7 @@ namespace TemplateEngine.Cli
             WriteTemplateFile(
                 manifestResourceStreamName: "Topic.test.StackReloaded.BuildingBlock.UnitTests.StackReloaded.BuildingBlock.UnitTests.csproj.txt",
                 filePath: Path.Combine(directoryPath, $"StackReloaded.{context.BuildingBlockNamespace}.UnitTests.csproj"),
-                transform: content => content.Replace("##BuildingBlock##", context.BuildingBlockNamespace));
+                transform: content => content.Replace("##BuildingBlock##", context.BuildingBlockNamespace, StringComparison.Ordinal));
         }
 
         private static void WriteTemplateFile(string manifestResourceStreamName, string filePath, Func<string, string> transform = null)
@@ -400,7 +400,7 @@ namespace TemplateEngine.Cli
                 throw  new ArgumentNullException(nameof(cmd));
             }
 
-            if (!cmd.StartsWith("dotnet "))
+            if (!cmd.StartsWith("dotnet ", StringComparison.Ordinal))
             {
                 throw new ArgumentException("Command doesn't starts with 'dotnet '.", nameof(cmd));
             }
@@ -417,7 +417,7 @@ namespace TemplateEngine.Cli
                 throw  new ArgumentNullException(nameof(cmd));
             }
 
-            if (!cmd.StartsWith("git "))
+            if (!cmd.StartsWith("git ", StringComparison.Ordinal))
             {
                 throw new ArgumentException("Command doesn't starts with 'git '.", nameof(cmd));
             }

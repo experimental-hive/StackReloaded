@@ -11,17 +11,4 @@
     <PackageReference Update="Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer" Version="$(MicrosoftAspNetCoreMvcVersioningApiExplorerPackageVersion)" />
   </ItemGroup>
 
-  <ItemGroup Label="Microsoft ServiceFabric dependencies">
-    <PackageReference Update="Microsoft.ServiceFabric" Version="$(MicrosoftServiceFabricPackageVersion)" />
-  </ItemGroup>
-  
-  <ItemGroup Label="Newtonsoft dependencies">
-    <PackageReference Update="Newtonsoft.Json" Version="$(NewtonsoftJsonPackageVersion)" />
-  </ItemGroup>
-  
-  <ItemGroup Label="Swashbuckle AspNetCore dependencies">
-    <PackageReference Update="Swashbuckle.AspNetCore" Version="$(SwashbuckleAspNetCorePackageVersion)" />
-    <PackageReference Update="Swashbuckle.AspNetCore.Filters" Version="$(SwashbuckleAspNetCoreFiltersPackageVersion)" />
-  </ItemGroup>
-
 </Project>

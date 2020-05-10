@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  
+  <PropertyGroup>
+    <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Remove="**" />
+    <Content Remove="**" />
+    <EmbeddedResource Remove="**" />
+    <None Remove="**" />
+    <None Include="..\..\*.md" />
+    <None Include="..\..\docs\**\*.md" LinkBase="docs" />
+    <None Include="..\..\src\**\*.md" LinkBase="src" />
+    <None Remove="..\..\src\**\bin\**\*.md" />
+    <None Remove="..\..\src\**\obj\**\*.md" />
+  </ItemGroup>
+
+</Project>
