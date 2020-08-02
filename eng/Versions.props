@@ -1,8 +1,8 @@
 <Project>
 
   <PropertyGroup Label=".NET Core dependencies">
-    <DefaultNetCoreTargetFramework>netcoreapp3.0</DefaultNetCoreTargetFramework>
-    <DotNetCorePackageVersion>3.0.0</DotNetCorePackageVersion>
+    <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
+    <DotNetCorePackageVersion>3.1.1</DotNetCorePackageVersion>
   </PropertyGroup>
 
   <PropertyGroup Label="Microsoft AspNetCore dependencies">
