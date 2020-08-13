@@ -6,6 +6,9 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 {
     public class BPlusTree<TKey, TValue>
     {
+        [ThreadStatic]
+        private static readonly Stack<InternalNode> _stackParents = new Stack<InternalNode>();
+
         public BPlusTree(int order, IComparer<TKey> keyComparer)
         {
             if (order < 3)
@@ -27,18 +30,32 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
         public IComparer<TKey> KeyComparer { get; }
         internal INode RootNode { get; set; }
         private int MaxKeyLength => Order - 1;
-        private int MinKeyLength => Order / 2;
+        private int MinKeyLength => (int)Math.Ceiling((decimal)Order / 2);
 
-        public bool Insert(TKey key, TValue value)
+        public bool Seek(TKey key, out TValue value)
         {
             var keyComparer = KeyComparer;
-            var stackInternalNodes = new Stack<InternalNode>();
             var node = RootNode;
             while (!node.IsLeaf)
             {
                 var internalNode = (InternalNode)node;
-                stackInternalNodes.Push(internalNode);
                 node = internalNode.GetNodePointer(key, keyComparer);
+            }
+            var leafNode = (LeafNode)node;
+            return leafNode.TryGetValue(key, keyComparer, out value);
+        }
+
+        public bool Insert(TKey key, TValue value)
+        {
+            var keyComparer = KeyComparer;
+            var stackParents = _stackParents;
+            stackParents.Clear();
+            var node = RootNode;
+            while (!node.IsLeaf)
+            {
+                var parentNode = (InternalNode)node;
+                stackParents.Push(parentNode);
+                node = parentNode.GetNodePointer(key, keyComparer);
             }
             var leafNode = (LeafNode)node;
             var insertEntryAtIndex = leafNode.AddEntry(key, keyComparer, value);
@@ -50,46 +67,222 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             var maxKeyLength = MaxKeyLength;
 
-            if (leafNode.Keys.Count > maxKeyLength)
+            // Geen overflow van leaf node.
+            if (leafNode.Keys.Count <= maxKeyLength)
             {
-                var leftLeafNode = leafNode;
-                var rightLeafNode = leafNode.Split();
-                
-                INode leftNodePoiner = leftLeafNode;
-                INode rightNodePointer = rightLeafNode;
-                var firstKeyOfRightNode = rightLeafNode.Keys[0];
+                return false;
+            }
 
-                while (true)
+            var leftLeafNode = leafNode;
+            var rightLeafNode = leafNode.Split();
+
+            INode leftNodePoiner = leftLeafNode;
+            INode rightNodePointer = rightLeafNode;
+            var firstKeyOfRightNode = rightLeafNode.Keys[0];
+
+            while (true)
+            {
+                if (stackParents.Count == 0)
                 {
-                    if (stackInternalNodes.Count == 0)
-                    {
-                        var newRootNode = new InternalNode();
-                        newRootNode.Keys.Add(firstKeyOfRightNode);
-                        newRootNode.NodePointers.Add(leftNodePoiner);
-                        newRootNode.NodePointers.Add(rightNodePointer);
-                        RootNode = newRootNode;
-                        break;
-                    }
-
-                    var internalNode = stackInternalNodes.Pop();
-                    internalNode.AddEntry(firstKeyOfRightNode, keyComparer, leftNodePoiner, rightNodePointer);
-
-                    if (internalNode.Keys.Count <= maxKeyLength)
-                    {
-                        break;
-                    }
-
-                    var newRightInternalNode = internalNode.Split();
-
-                    leftNodePoiner = internalNode;
-                    rightNodePointer = newRightInternalNode;
-                    firstKeyOfRightNode = newRightInternalNode.Keys[0];
-                    newRightInternalNode.Keys.RemoveAt(0);
-                    newRightInternalNode.NodePointers.RemoveAt(0);
+                    var newRootNode = new InternalNode(MaxKeyLength);
+                    newRootNode.Keys.Add(firstKeyOfRightNode);
+                    newRootNode.NodePointers.Add(leftNodePoiner);
+                    newRootNode.NodePointers.Add(rightNodePointer);
+                    RootNode = newRootNode;
+                    break;
                 }
+
+                var internalNode = stackParents.Pop();
+                internalNode.AddEntry(firstKeyOfRightNode, keyComparer, leftNodePoiner, rightNodePointer);
+
+                if (internalNode.Keys.Count <= maxKeyLength)
+                {
+                    break;
+                }
+
+                var newRightInternalNode = internalNode.Split();
+
+                leftNodePoiner = internalNode;
+                rightNodePointer = newRightInternalNode;
+                firstKeyOfRightNode = newRightInternalNode.Keys[0];
+                newRightInternalNode.Keys.RemoveAt(0);
+                newRightInternalNode.NodePointers.RemoveAt(0);
             }
 
             return true;
+        }
+
+        public bool Delete(TKey key)
+        {
+            var keyComparer = KeyComparer;
+            var stackParents = _stackParents;
+            stackParents.Clear();
+            var rootNode = RootNode;
+            InternalNode parentNode = null;
+            var node = rootNode;
+            var nodePointerIndex = -1;
+            while (!node.IsLeaf)
+            {
+                parentNode = (InternalNode)node;
+                nodePointerIndex = parentNode.GetIndexOfNodePointer(key, keyComparer);
+                node = parentNode.NodePointers[nodePointerIndex];
+
+                stackParents.Push(parentNode);
+            }
+            var leafNode = (LeafNode)node;
+            var deleted = leafNode.DeleteEntry(key, keyComparer, out var indexOfDeletedEntry);
+
+            if (leafNode == rootNode)
+            {
+                return deleted;
+            }
+
+            if (!deleted)
+            {
+                return false;
+            }
+
+            // De key is aanwezig in internal nodes, dus de key vervangen met minimum key uit leaf node.
+            if (indexOfDeletedEntry == 0)
+            {
+                var toKey = leafNode.Keys[0];
+                ReplaceKey(stackParents, key, toKey, keyComparer);
+            }
+
+            var minKeyLength = MinKeyLength;
+
+            // Geen underflow van leaf node.
+            if (leafNode.Keys.Count >= minKeyLength)
+            {
+                return true;
+            }
+
+            var rightSiblingLeafNode = nodePointerIndex == -1 || nodePointerIndex + 1 == parentNode.NodePointers.Count ? null : (LeafNode)parentNode.NodePointers[nodePointerIndex + 1];
+
+            // Indien mogelijk, steel eerste entry van right sibling.
+            if (rightSiblingLeafNode != null && rightSiblingLeafNode.Keys.Count > minKeyLength)
+            {
+                var keyOfFirstEntry = rightSiblingLeafNode.Keys[0];
+                var valueOfFirstEntry = rightSiblingLeafNode.Values[0];
+                leafNode.Keys.Add(keyOfFirstEntry);
+                leafNode.Values.Add(valueOfFirstEntry);
+                rightSiblingLeafNode.Keys.RemoveAt(0);
+                rightSiblingLeafNode.Values.RemoveAt(0);
+                ReplaceKey(stackParents, keyOfFirstEntry, rightSiblingLeafNode.Keys[0], keyComparer);
+                return true;
+            }
+
+            var leftSiblingLeafNode = nodePointerIndex == -1 || nodePointerIndex == 0 ? null : (LeafNode)parentNode.NodePointers[nodePointerIndex - 1];
+
+            // Indien mogelijk, steel laatste entry van left sibling.
+            if (leftSiblingLeafNode != null && leftSiblingLeafNode.Keys.Count > minKeyLength)
+            {
+                var indexOfLastEntry = leftSiblingLeafNode.Keys.Count - 1;
+                var keyOfLastEntry = leftSiblingLeafNode.Keys[indexOfLastEntry];
+                var valueOfLastEntry = leftSiblingLeafNode.Values[indexOfLastEntry];
+                var oldFirstKeyOfLeafNode = leafNode.Keys[0];
+                leafNode.Keys.Insert(0, keyOfLastEntry);
+                leafNode.Values.Insert(0, valueOfLastEntry);
+                leftSiblingLeafNode.Keys.RemoveAt(indexOfLastEntry);
+                leftSiblingLeafNode.Values.RemoveAt(indexOfLastEntry);
+                ReplaceKey(stackParents, oldFirstKeyOfLeafNode, keyOfLastEntry, keyComparer);
+                return true;
+            }
+
+            TKey delKey;
+            // merge met right sibling
+            if (rightSiblingLeafNode != null)
+            {
+                delKey = leafNode.MergeWithRightSibling(rightSiblingLeafNode, parentNode, keyComparer);
+            }
+            else // anders merge met left sibling
+            {
+                delKey = leftSiblingLeafNode.MergeWithRightSibling(leafNode, parentNode, keyComparer);
+            }
+
+            if (stackParents.Count == 1 && parentNode.Keys.Count == 0)
+            {
+                RootNode = leafNode;
+                return true;
+            }
+
+            var currentNode = stackParents.Pop();
+
+            while (currentNode.Keys.Count < minKeyLength && stackParents.Count > 0)
+            {
+                parentNode = stackParents.Pop();
+                nodePointerIndex = parentNode.GetIndexOfNodePointer(delKey, keyComparer);
+
+                var rightSiblingInternalNode = nodePointerIndex == -1 || nodePointerIndex + 1 == parentNode.NodePointers.Count ? null : (InternalNode)parentNode.NodePointers[nodePointerIndex + 1];
+
+                // Indien mogelijk, steel eerste entry van right sibling.
+                if (rightSiblingInternalNode != null && rightSiblingInternalNode.Keys.Count > minKeyLength)
+                {
+                    currentNode.Keys.Add(parentNode.Keys[nodePointerIndex]);
+                    parentNode.Keys[nodePointerIndex] = rightSiblingInternalNode.Keys[0];
+                    currentNode.NodePointers.Add(rightSiblingInternalNode.NodePointers[0]);
+                    rightSiblingLeafNode.Keys.RemoveAt(0);
+                    rightSiblingLeafNode.Values.RemoveAt(0);
+                    break;
+                }
+
+                var leftSiblingInternalNode = nodePointerIndex == -1 || nodePointerIndex == 0 ? null : (InternalNode)parentNode.NodePointers[nodePointerIndex - 1];
+
+                // Indien mogelijk, steel laatste entry van left sibling.
+                if (leftSiblingInternalNode != null && leftSiblingInternalNode.Keys.Count > minKeyLength)
+                {
+                    currentNode.Keys.Insert(0, parentNode.Keys[nodePointerIndex - 1]);
+                    var indexOfLastKey = leftSiblingInternalNode.Keys.Count - 1;
+                    var indexOfLastValue = leftSiblingInternalNode.NodePointers.Count - 1;
+                    parentNode.Keys[nodePointerIndex - 1] = leftSiblingInternalNode.Keys[indexOfLastKey];
+                    currentNode.NodePointers.Insert(0, leftSiblingInternalNode.NodePointers[indexOfLastValue]);
+                    leftSiblingInternalNode.Keys.RemoveAt(indexOfLastKey);
+                    leftSiblingInternalNode.NodePointers.RemoveAt(indexOfLastValue);
+                    break;
+                }
+
+                // Merge right sibling
+                if (rightSiblingInternalNode != null)
+                {
+                    delKey = currentNode.MergeWithRightSibling(rightSiblingInternalNode, parentNode, nodePointerIndex);
+                }
+                else if (leftSiblingInternalNode != null) // anders merge met left sibling
+                {
+                    delKey = leftSiblingInternalNode.MergeWithRightSibling(currentNode, parentNode, nodePointerIndex - 1);
+                    currentNode = leftSiblingInternalNode;
+                }
+
+                // Next level
+                if (stackParents.Count == 0 && parentNode.Keys.Count == 0)
+                {
+                    RootNode = currentNode;
+                    break;
+                }
+
+                currentNode = parentNode;
+            }
+
+            return true;
+        }
+
+        private static void ReplaceKey(Stack<InternalNode> stack, TKey fromKey, TKey toKey, IComparer<TKey> keyComparer)
+        {
+            foreach (var stackEntry in stack)
+            {
+                var keys = stackEntry.Keys;
+
+                // binary search
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    if (keyComparer.Compare(keys[i], fromKey) != 0)
+                    {
+                        continue;
+                    }
+
+                    keys[i] = toKey;
+                    break;
+                }
+            }
         }
 
         internal interface INode
@@ -105,17 +298,48 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 NodePointers = new List<INode>();
             }
 
+            public InternalNode(int capacity)
+            {
+                Keys = new List<TKey>(capacity);
+                NodePointers = new List<INode>(capacity + 1);
+            }
+
             public bool IsLeaf => false;
 
             public List<TKey> Keys { get; set; }
 
             public List<INode> NodePointers { get; set; }
 
-            public int GetIndexOfNodePointer(TKey key, IComparer<TKey> keyComparer)
+            public bool GetIndexOfNodePointerWithKeyMatchFlag(TKey key, IComparer<TKey> keyComparer, out int index)
             {
                 var keys = Keys;
 
                 for (int i = 0, len = keys.Count; i < len; i++)
+                {
+                    var compareResult = keyComparer.Compare(key, keys[i]);
+
+                    if (compareResult == 0)
+                    {
+                        index = i + 1;
+                        return true;
+                    }
+
+                    if (compareResult == -1)
+                    {
+                        index = i;
+                        return false;
+                    }
+                }
+
+                index = keys.Count;
+                return false;
+            }
+
+            public int GetIndexOfNodePointer(TKey key, IComparer<TKey> keyComparer)
+            {
+                var keys = Keys;
+
+                for (int i = 0; i < keys.Count; i++)
                 {
                     if (keyComparer.Compare(key, keys[i]) == -1)
                     {
@@ -198,14 +422,36 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 var entryCountToMove = keys.Count / 2;
                 var entryCountToKeep = keys.Count - entryCountToMove;
 
-                var newRightInternalNode = new InternalNode();
-                newRightInternalNode.Keys = keys.Skip(entryCountToKeep).ToList();
-                newRightInternalNode.NodePointers = nodePointers.Skip(entryCountToKeep).ToList();
+                var newRightInternalNode = new InternalNode(Keys.Capacity);
+                for (int i = entryCountToKeep; i < keys.Count; i++)
+                {
+                    newRightInternalNode.Keys.Add(keys[i]);
+                    newRightInternalNode.NodePointers.Add(nodePointers[i]);
+                }
+                newRightInternalNode.NodePointers.Add(nodePointers[^1]);
 
-                Keys = keys.Take(entryCountToKeep).ToList();
-                NodePointers = nodePointers.Take(entryCountToKeep + 1).ToList();
+                for (int i = entryCountToMove; i > 0; i--)
+                {
+                    Keys.RemoveAt(Keys.Count - 1);
+                    NodePointers.RemoveAt(NodePointers.Count - 1);
+                }
 
                 return newRightInternalNode;
+            }
+
+            public TKey MergeWithRightSibling(InternalNode rightSiblingInternalNode, InternalNode parentNode, int parentKeyIndex)
+            {
+                var delKey = parentNode.Keys[parentKeyIndex];
+                Keys.Add(delKey);
+                for (var i = 0; i < rightSiblingInternalNode.Keys.Count; i++)
+                {
+                    Keys.Add(rightSiblingInternalNode.Keys[i]);
+                    NodePointers.Add(rightSiblingInternalNode.NodePointers[i]);
+                }
+                NodePointers.Add(rightSiblingInternalNode.NodePointers[^1]);
+                parentNode.Keys.RemoveAt(parentKeyIndex);
+                parentNode.NodePointers.RemoveAt(parentKeyIndex + 1);
+                return delKey;
             }
         }
 
@@ -215,6 +461,12 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             {
                 Keys = new List<TKey>();
                 Values = new List<TValue>();
+            }
+
+            public LeafNode(int capacity)
+            {
+                Keys = new List<TKey>(capacity);
+                Values = new List<TValue>(capacity + 1);
             }
 
             public bool IsLeaf => true;
@@ -231,7 +483,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             {
                 var keys = Keys;
 
-                for (int i = 0, len = keys.Count; i < len; i++)
+                for (int i = 0; i < keys.Count; i++)
                 {
                     if (keyComparer.Compare(key, keys[i]) == 0)
                     {
@@ -243,6 +495,20 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             }
 
             public TValue GetValueAtIndex(int index) => Values[index];
+
+            public bool TryGetValue(TKey key, IComparer<TKey> keyComparer, out TValue value)
+            {
+                var index = GetIndex(key, keyComparer);
+
+                if (index == -1)
+                {
+                    value = default;
+                    return false;
+                }
+
+                value = Values[index];
+                return true;
+            }
 
             public int AddEntry(TKey key, IComparer<TKey> keyComparer, TValue value)
             {
@@ -291,6 +557,20 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return insertEntryAtIndex;
             }
 
+            public bool DeleteEntry(TKey key, IComparer<TKey> keyComparer, out int index)
+            {
+                index = GetIndex(key, keyComparer);
+
+                if (index == -1)
+                {
+                    return false;
+                }
+
+                Keys.RemoveAt(index);
+                Values.RemoveAt(index);
+                return true;
+            }
+
             public LeafNode Split()
             {
                 var keys = Keys;
@@ -299,12 +579,18 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 var entryCountToMove = keys.Count / 2;
                 var entryCountToKeep = keys.Count - entryCountToMove;
 
-                var newNextLeaf = new LeafNode();
-                newNextLeaf.Keys = keys.Skip(entryCountToKeep).ToList();
-                newNextLeaf.Values = values.Skip(entryCountToKeep).ToList();
+                var newNextLeaf = new LeafNode(Keys.Capacity);
+                for (int i = entryCountToKeep; i < keys.Count; i++)
+                {
+                    newNextLeaf.Keys.Add(keys[i]);
+                    newNextLeaf.Values.Add(values[i]);
+                }
 
-                Keys = keys.Take(entryCountToKeep).ToList();
-                Values = values.Take(entryCountToKeep).ToList();
+                for (int i = entryCountToMove; i > 0; i--)
+                {
+                    Keys.RemoveAt(Keys.Count - 1);
+                    Values.RemoveAt(Values.Count - 1);
+                }
 
                 newNextLeaf.PreviousLeaf = this;
 
@@ -317,6 +603,41 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 NextLeaf = newNextLeaf;
 
                 return newNextLeaf;
+            }
+
+            public TKey MergeWithRightSibling(LeafNode rightSiblingLeafNode, InternalNode parentNode, IComparer<TKey> keyComparer)
+            {
+                var firstKeyOfRightSiblingLeafNode = rightSiblingLeafNode.Keys[0];
+                for (int i = 0; i < rightSiblingLeafNode.Keys.Count; i++)
+                {
+                    Keys.Add(rightSiblingLeafNode.Keys[i]);
+                    Values.Add(rightSiblingLeafNode.Values[i]);
+                }
+                rightSiblingLeafNode.Keys.Clear();
+                rightSiblingLeafNode.Values.Clear();
+                NextLeaf = rightSiblingLeafNode.NextLeaf;
+                if (NextLeaf != null)
+                {
+                    NextLeaf.PreviousLeaf = this;
+                }
+                rightSiblingLeafNode.NextLeaf = null;
+                rightSiblingLeafNode.PreviousLeaf = null;
+                var keyIndex = -1;
+                for (var i = 0; i < parentNode.Keys.Count; i++)
+                {
+                    if (keyComparer.Compare(parentNode.Keys[i], firstKeyOfRightSiblingLeafNode) == 0)
+                    {
+                        keyIndex = i;
+                        break;
+                    }
+                }
+                if (keyIndex != -1)
+                {
+                    parentNode.Keys.RemoveAt(keyIndex);
+                    parentNode.NodePointers.RemoveAt(keyIndex + 1);
+                }
+
+                return firstKeyOfRightSiblingLeafNode;
             }
         }
     }

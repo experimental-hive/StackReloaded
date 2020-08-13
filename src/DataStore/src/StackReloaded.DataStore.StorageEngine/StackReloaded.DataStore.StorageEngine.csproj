@@ -7,4 +7,8 @@
     <PackageId>StackReloaded.DataStore.StorageEngine</PackageId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="Storage\" />
+  </ItemGroup>
+
 </Project>

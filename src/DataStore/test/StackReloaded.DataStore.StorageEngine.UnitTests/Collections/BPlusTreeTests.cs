@@ -326,6 +326,135 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
                 leafNode4.Values[1].Should().Be(1000);
             }
         }
+
+        [Theory]
+        [InlineData(3, true, 300)]
+        [InlineData(4, true, 400)]
+        [InlineData(7, true, 700)]
+        [InlineData(10, true, 1000)]
+        [InlineData(11, false, default(int))]
+        public void GivenBPlusTreeOfOrder4With10InsertedEntriesWhenSeekByKeyThenReturnsFoundFlagAndValueIfFounded(int seekKey, bool expectedFoundFlag, int expectedFoundValue)
+        {
+            // arrange
+            var order = 4;
+            var keyComparer = Comparer<int>.Default;
+            var bplusTree = new BPlusTree<int, int>(order, keyComparer);
+            var keys = new [] { 1, 3, 5, 7, 9, 2, 4, 6, 8, 10 };
+            
+            foreach(int key in keys)
+            {
+                bplusTree.Insert(key, key * 100);
+            }
+
+            // act
+            var foundFlag = bplusTree.Seek(seekKey, out var foundValue);
+
+            // assert
+            foundFlag.Should().Be(expectedFoundFlag);
+            foundValue.Should().Be(expectedFoundValue);
+        }
+
+        [Theory]
+        [InlineData(0, 1, 30)]
+        [InlineData(0, 2, 20)]
+        [InlineData(0, 3, 25)]
+        [InlineData(4, 5, 9)]
+        public void GivenBPlusTreeWhenDeleteEntriesThenBPlusTreeHasCorrectState(int indexOfBPlusTreeDataBeforeDelete, int indexOfBPlusTreeDataAfterDelete, int key)
+        {
+            // arrange
+            var bplusTreeData0BeforeDelete = @"
+20
+  15, 18
+    9, 11, 13
+    15, 17
+    18, 19
+  25, 30
+    20, 21, 24
+    25, 26
+    30, 31, 33
+";
+            var bplusTreeData0AfterDelete30 = @"
+20
+  15, 18
+    9, 11, 13
+    15, 17
+    18, 19
+  25, 31
+    20, 21, 24
+    25, 26
+    31, 33
+";
+            var bplusTreeData0AfterDelete20 = @"
+21
+  15, 18
+    9, 11, 13
+    15, 17
+    18, 19
+  25, 30
+    21, 24
+    25, 26
+    30, 31, 33
+";
+
+            var bplusTreeData0AfterDelete25 = @"
+20
+  15, 18
+    9, 11, 13
+    15, 17
+    18, 19
+  26, 31
+    20, 21, 24
+    26, 30
+    31, 33
+";
+
+            var bplusTreeData1BeforeDelete = @"
+9
+  3, 5, 7
+    1, 2
+    3, 4
+    5, 6
+    7, 8
+  11
+    9, 10
+    11, 12
+";
+
+            var bplusTreeData1AfterDelete9 = @"
+7
+  3, 5
+    1, 2
+    3, 4
+    5, 6
+  10
+    7, 8
+    10, 11, 12
+";
+            var bplusTreeDataArray = new[]
+            {
+                bplusTreeData0BeforeDelete,
+                bplusTreeData0AfterDelete30,
+                bplusTreeData0AfterDelete20,
+                bplusTreeData0AfterDelete25,
+                bplusTreeData1BeforeDelete,
+                bplusTreeData1AfterDelete9
+            };
+
+            var bplusTreeData = bplusTreeDataArray[indexOfBPlusTreeDataBeforeDelete];
+            var expectedBPlusTreeDataAfterDelete = bplusTreeDataArray[indexOfBPlusTreeDataAfterDelete];
+            var order = 3;
+            var keyComparer = Comparer<int>.Default;
+            var bplusTree = new BPlusTree<int, int>(order, keyComparer);
+            BPlusTreeConstructor.Construct(bplusTree, bplusTreeData);
+            BPlusTreeDataPrinter.PrintData(bplusTree).Should().Be(bplusTreeData);
+
+            // act
+            var deleted = bplusTree.Delete(key);
+
+            // assert
+            deleted.Should().BeTrue();
+            BPlusTreeDataPrinter.PrintData(bplusTree).Should().Be(expectedBPlusTreeDataAfterDelete);
+        }
     }
 
     public class BPlusTreeLeafNodeTests
@@ -435,6 +564,73 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             leaf.NextLeaf.Should().BeSameAs(newNextLeaf);
             newNextLeaf.PreviousLeaf.Should().BeSameAs(leaf);
             newNextLeaf.NextLeaf.Should().BeSameAs(oldNextLeaf);
+        }
+
+        [Fact]
+        public void GivenEmptyEntriesWhenDeleteEntryThenNoEntryIsDeleted()
+        {
+            // arrange
+            var keyComparer = Comparer<int>.Default;
+            var leaf = new BPlusTree<int, int>.LeafNode();
+
+            // act
+            var deleted = leaf.DeleteEntry(2, keyComparer, out var index);
+
+            // assert
+            deleted.Should().BeFalse();
+            index.Should().Be(-1);
+            leaf.Keys.Should().HaveCount(0);
+            leaf.Values.Should().HaveCount(0);
+        }
+
+        [Fact]
+        public void GivenThreeEntriesWithKeys1And2And3WhenDeleteEntryWithKey2ThenEntryWithKey3IsAtIndex1()
+        {
+            // arrange
+            var keyComparer = Comparer<int>.Default;
+            var leaf = new BPlusTree<int, int>.LeafNode();
+            leaf.AddEntry(1, keyComparer, 100);
+            leaf.AddEntry(2, keyComparer, 200);
+            leaf.AddEntry(3, keyComparer, 300);
+
+            // act
+            var deleted = leaf.DeleteEntry(2, keyComparer, out var index);
+
+            // assert
+            deleted.Should().BeTrue();
+            index.Should().Be(1);
+            leaf.Keys.Should().HaveCount(2);
+            leaf.Values.Should().HaveCount(2);
+            leaf.Keys[0].Should().Be(1);
+            leaf.Values[0].Should().Be(100);
+            leaf.Keys[1].Should().Be(3);
+            leaf.Values[1].Should().Be(300);
+        }
+
+        [Fact]
+        public void GivenThreeEntriesWithKeys1And2And3WhenDeleteEntryWithKey4ThenNoEntryIsDeleted()
+        {
+            // arrange
+            var keyComparer = Comparer<int>.Default;
+            var leaf = new BPlusTree<int, int>.LeafNode();
+            leaf.AddEntry(1, keyComparer, 100);
+            leaf.AddEntry(2, keyComparer, 200);
+            leaf.AddEntry(3, keyComparer, 300);
+
+            // act
+            var deleted = leaf.DeleteEntry(4, keyComparer, out var index);
+
+            // assert
+            deleted.Should().BeFalse();
+            index.Should().Be(-1);
+            leaf.Keys.Should().HaveCount(3);
+            leaf.Values.Should().HaveCount(3);
+            leaf.Keys[0].Should().Be(1);
+            leaf.Values[0].Should().Be(100);
+            leaf.Keys[1].Should().Be(2);
+            leaf.Values[1].Should().Be(200);
+            leaf.Keys[2].Should().Be(3);
+            leaf.Values[2].Should().Be(300);
         }
     }
 
@@ -584,6 +780,28 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
                 newRightInternalNode.NodePointers[i].Should().BeSameAs(nodePointers[i + 5]);
             }
             newRightInternalNode.NodePointers[4].Should().BeSameAs(nodePointers[4 + 5]);
+        }
+
+        [Theory]
+        [InlineData(0, false, 0)]
+        [InlineData(1, true, 1)]
+        [InlineData(2, false, 1)]
+        [InlineData(3, true, 2)]
+        [InlineData(4, false, 2)]
+        public void GivenEntryWithKey1IsAtIndex0AndKey3IsAtIndex1WhenGetIndexOfNodePointerWithKeyMatchFlagThenKeyMatchFlagAndIndexShouldBeAsExpected(int key, bool expectedKeyMatchFlag, int expectedIndex)
+        {
+            // arrange
+            var keyComparer = Comparer<int>.Default;
+            var internalNode = new BPlusTree<int, int>.InternalNode();
+            internalNode.Keys.Add(1);
+            internalNode.Keys.Add(3);
+
+            // act
+            var keyMatchFlag = internalNode.GetIndexOfNodePointerWithKeyMatchFlag(key, keyComparer, out var index);
+
+            // assert
+            keyMatchFlag.Should().Be(expectedKeyMatchFlag);
+            index.Should().Be(expectedIndex);
         }
     }
 }

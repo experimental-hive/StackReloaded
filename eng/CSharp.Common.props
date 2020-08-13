@@ -25,7 +25,7 @@
   </ItemGroup>
   
   <ItemGroup Condition=" '$(IsBenchmarkProject)' == 'true' ">
-    <PackageReference Include="BenchmarkDotNet" Version="0.11.5" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(IsTestProject)' == 'true' ">

@@ -5,11 +5,15 @@ VisualStudioVersion = 16.0.29324.140
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{502333E9-CD92-4757-9547-016F95FF3DAE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackReloaded.DataStore.StorageEngine", "src\StackReloaded.DataStore.StorageEngine\StackReloaded.DataStore.StorageEngine.csproj", "{702EEAF7-A42A-4C5C-B962-BA9C58A54F8C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StackReloaded.DataStore.StorageEngine", "src\StackReloaded.DataStore.StorageEngine\StackReloaded.DataStore.StorageEngine.csproj", "{702EEAF7-A42A-4C5C-B962-BA9C58A54F8C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{769CC49C-CE05-438D-A159-7BC32E2A7B3E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackReloaded.DataStore.StorageEngine.UnitTests", "test\StackReloaded.DataStore.StorageEngine.UnitTests\StackReloaded.DataStore.StorageEngine.UnitTests.csproj", "{6C0E5928-4943-4536-A828-A4A62E128D02}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StackReloaded.DataStore.StorageEngine.UnitTests", "test\StackReloaded.DataStore.StorageEngine.UnitTests\StackReloaded.DataStore.StorageEngine.UnitTests.csproj", "{6C0E5928-4943-4536-A828-A4A62E128D02}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "perf", "perf", "{A6AD6BEA-E8AE-4A47-BB77-CD01F1656BE9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StackReloaded.DataStore.StorageEngine.MicroBenchmarks", "perf\StackReloaded.DataStore.StorageEngine.MicroBenchmarks\StackReloaded.DataStore.StorageEngine.MicroBenchmarks.csproj", "{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,9 +21,6 @@ Global
 		Debug|x64 = Debug|x64
 		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{702EEAF7-A42A-4C5C-B962-BA9C58A54F8C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -38,9 +39,24 @@ Global
 		{6C0E5928-4943-4536-A828-A4A62E128D02}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6C0E5928-4943-4536-A828-A4A62E128D02}.Release|x64.ActiveCfg = Release|Any CPU
 		{6C0E5928-4943-4536-A828-A4A62E128D02}.Release|x64.Build.0 = Release|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Debug|x64.Build.0 = Debug|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Release|x64.ActiveCfg = Release|Any CPU
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{702EEAF7-A42A-4C5C-B962-BA9C58A54F8C} = {502333E9-CD92-4757-9547-016F95FF3DAE}
 		{6C0E5928-4943-4536-A828-A4A62E128D02} = {769CC49C-CE05-438D-A159-7BC32E2A7B3E}
+		{C3E14CEC-7E8C-419F-AB03-8890EE0A33C7} = {A6AD6BEA-E8AE-4A47-BB77-CD01F1656BE9}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {65A7C999-1860-4502-85A9-27C27561F24D}
 	EndGlobalSection
 EndGlobal
