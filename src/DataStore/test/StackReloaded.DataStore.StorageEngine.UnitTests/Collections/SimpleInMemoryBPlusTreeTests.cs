@@ -39,7 +39,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
 
         internal override IBPlusTreeNode CreateFakeNode<TKey, TValue>()
         {
-            return A.Fake<BPlusTree<TKey, TValue>.INode>();
+            return A.Fake<SimpleInMemoryBPlusTree<TKey, TValue>.INode>();
         }
     }
 }

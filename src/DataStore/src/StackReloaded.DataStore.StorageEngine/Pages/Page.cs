@@ -8,8 +8,10 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 {
     internal unsafe struct Page
     {
-        public const int PageSize = 8 * Size.Kilobyte;
+        public const int PageSize = 8 * Size.Kilobyte; // 16 x 512B (sector size) = 8192B = 8KB
         public const int StorageSize = 8060;
+        public const int MaxSlotCount = 736; // (8192 - 96) / (9 + 2) = 8096 / 11 = 736
+        public const int RentSlotCount = 1024;
 
         public readonly byte* Pointer;
 
@@ -118,10 +120,10 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
             var slotCount = this.SlotCount;
 
             var slotArrayPool = ArrayPool<short>.Shared;
-            short[] slotArray = slotArrayPool.Rent(slotCount + 1);
+            short[] slotArray = slotArrayPool.Rent(RentSlotCount);
 
             var recordsLayoutPool = ArrayPool<ValueTuple<short, short>>.Shared;
-            ValueTuple<short, short>[] recordsLayout = recordsLayoutPool.Rent(slotCount);
+            ValueTuple<short, short>[] recordsLayout = recordsLayoutPool.Rent(RentSlotCount);
 
             if (slotCount != 0)
             {
@@ -172,7 +174,7 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
                 BinaryUtil.WriteRawBytes(this.Pointer + slotEntry, bytes);
 
-                bool slotInserted = false;
+                int extraFreeDataUsed = byteLength;
 
                 if (clusteredKey == null)
                 {
@@ -189,34 +191,27 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
                     int insertAtSlotIndex = BinarySearchSlotIndexByClusteredKey(clusteredKey, clusteredKeyResolver, clusteredKeyComparer, slotCount, slotArray);
 
-                    if (insertAtSlotIndex >= 0 && insertAtSlotIndex < slotCount - 1)
+                    if (insertAtSlotIndex == -1)
                     {
-                        for (int j = insertAtSlotIndex + 1; j < slotCount; j++)
+                        insertAtSlotIndex = slotCount;
+                    }
+                    else if (insertAtSlotIndex < slotCount)
+                    {
+                        for (int i = slotCount - 1; i >= insertAtSlotIndex; i--)
                         {
-                            slotArray[j] = slotArray[j - 1];
+                            var j = i + 1;
+                            slotArray[j] = slotArray[i];
                             BinaryUtil.WriteInt16(this.Pointer + this.RawSize - (j * 2) - 2, slotArray[j]);
                         }
-
-                        slotArray[insertAtSlotIndex] = (short)slotEntry;
-                        BinaryUtil.WriteInt16(this.Pointer + this.RawSize - (insertAtSlotIndex * 2) - 2, slotArray[insertAtSlotIndex]);
-
-                        slotInserted = true;
                     }
 
-                    if (!slotInserted)
-                    {
-                        slotArray[slotCount] = (short)slotEntry;
-                        BinaryUtil.WriteInt16(this.Pointer + this.RawSize - (slotCount * 2) - 2, slotArray[slotCount]);
-                    }
+                    slotArray[insertAtSlotIndex] = (short)slotEntry;
+                    BinaryUtil.WriteInt16(this.Pointer + this.RawSize - (insertAtSlotIndex * 2) - 2, slotArray[insertAtSlotIndex]);
                 }
 
                 this.SlotCount = (short)(slotCount + 1);
                 this.FreeCount -= (short)(byteLength + 2);
-
-                if (!slotInserted)
-                {
-                    this.FreeData = (short)(freeData + byteLength);
-                }
+                this.FreeData = (short)(freeData + extraFreeDataUsed);
             }
             else
             {
@@ -234,7 +229,7 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
             slotArrayPool.Return(slotArray);
         }
 
-        public void DeleteRawBytes<K>(K clusteredKey, ClusteredKeyResolverDelegate<K> clusteredKeyResolver, IComparer<K> clusteredKeyComparer)
+        public void DeleteRawBytes<TKey>(TKey clusteredKey, ClusteredKeyResolverDelegate<TKey> clusteredKeyResolver, IComparer<TKey> clusteredKeyComparer)
         {
             if (clusteredKey != null)
             {
@@ -257,10 +252,9 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
             }
 
             var slotArrayPool = ArrayPool<short>.Shared;
-            short[] slotArray = slotArrayPool.Rent(slotCount);
-
+            short[] slotArray = slotArrayPool.Rent(RentSlotCount);
             var recordsLayoutPool = ArrayPool<ValueTuple<short, short>>.Shared;
-            ValueTuple<short, short>[] recordsLayout = recordsLayoutPool.Rent(slotCount);
+            ValueTuple<short, short>[] recordsLayout = recordsLayoutPool.Rent(RentSlotCount);
 
             short freeData = this.FreeData;
 
@@ -270,8 +264,6 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
             }
             else
             {
-                // binary search algoritm
-                // slot array entries moeten in volgorde zoals volgens clustered index
                 for (int i = 0; i < slotCount; i++)
                 {
                     slotArray[i] = BinaryUtil.ReadInt16(this.Pointer + this.RawSize - (i * 2) - 2);
@@ -279,39 +271,73 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
                 int deleteAtSlotIndex = BinarySearchSlotIndexByClusteredKey(clusteredKey, clusteredKeyResolver, clusteredKeyComparer, slotCount, slotArray, skipClusteredKeyAlreadyExist: true);
 
-                if (deleteAtSlotIndex >= 0 && deleteAtSlotIndex < slotCount)
+                if (deleteAtSlotIndex < 0 || deleteAtSlotIndex >= slotCount)
                 {
-                    short recordOffset = slotArray[deleteAtSlotIndex];
-                    byte* dataRecordPointer = this.Pointer + recordOffset;
-                    short recordSize = BinaryUtil.ReadInt16(dataRecordPointer);
-                    int byteLength = recordSize;
-
-                    if (deleteAtSlotIndex < slotCount - 1)
+                    if (deleteAtSlotIndex == -1)
                     {
-                        for (int j = deleteAtSlotIndex + 1; j < slotCount - 1; j++)
-                        {
-                            slotArray[j - 1] = slotArray[j];
-                            BinaryUtil.WriteInt16(this.Pointer + this.RawSize - ((j - 1) * 2) - 2, slotArray[j - 1]);
-                        }
+                        throw new NotImplementedException();
                     }
 
-                    slotArray[slotCount - 1] = (short)0;
-                    BinaryUtil.WriteInt16(this.Pointer + this.RawSize - ((slotCount - 1) * 2) - 2, slotArray[slotCount - 1]);
+                    throw new NotImplementedException();
+                }
 
-                    BinaryUtil.ClearRawBytes(dataRecordPointer, byteLength);
+                short recordOffset = slotArray[deleteAtSlotIndex];
+                byte* dataRecordPointer = this.Pointer + recordOffset;
+                short recordSize = BinaryUtil.ReadInt16(dataRecordPointer);
+                int byteLength = recordSize;
 
-                    this.SlotCount = (short)(slotCount - 1);
-                    this.FreeCount += (short)(byteLength + 2);
-
-                    if (recordOffset + byteLength == freeData)
+                if (deleteAtSlotIndex < slotCount - 1)
+                {
+                    for (int i = deleteAtSlotIndex; i < slotCount; i++)
                     {
-                        this.FreeData = (short)(freeData - byteLength);
+                        slotArray[i] = slotArray[i + 1];
+                        BinaryUtil.WriteInt16(this.Pointer + this.RawSize - (i * 2) - 2, slotArray[i]);
                     }
+                }
+
+                slotArray[slotCount - 1] = (short)0;
+                BinaryUtil.WriteInt16(this.Pointer + this.RawSize - ((slotCount - 1) * 2) - 2, slotArray[slotCount - 1]);
+
+                BinaryUtil.ClearRawBytes(dataRecordPointer, byteLength);
+
+                this.SlotCount = (short)(slotCount - 1);
+                this.FreeCount += (short)(byteLength + 2);
+
+                if (recordOffset + byteLength == freeData)
+                {
+                    this.FreeData = DetermineFreeData(slotArray);
                 }
             }
 
             recordsLayoutPool.Return(recordsLayout);
             slotArrayPool.Return(slotArray);
+        }
+
+        private short DetermineFreeData(short[] slotArray)
+        {
+            short slotCount = this.SlotCount;
+            int freeData = PageHeader.SizeOf;
+
+            for (int i = 0; i < slotCount; i++)
+            {
+                short recordOffset = slotArray[i];
+
+                if (recordOffset < freeData)
+                {
+                    continue;
+                }
+
+                byte* dataRecordPointer = this.Pointer + recordOffset;
+                short recordSize = BinaryUtil.ReadInt16(dataRecordPointer);
+                int recordEnd = recordOffset + recordSize;
+
+                if (recordEnd > freeData)
+                {
+                    freeData = recordEnd;
+                }
+            }
+
+            return (short)freeData;
         }
 
         private int BinarySearchSlotIndexByClusteredKey<TKey>(TKey clusteredKey, ClusteredKeyResolverDelegate<TKey> clusteredKeyResolver, IComparer<TKey> clusteredKeyComparer, short slotCount, short[] slotArray, bool skipClusteredKeyAlreadyExist = false)
@@ -324,6 +350,17 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
                 byte* dataRecordPointer = this.Pointer + slotArray[mid];
                 int recordSize = BinaryUtil.ReadInt16(dataRecordPointer);
+
+                if (recordSize <= 0)
+                {
+                    if (recordSize == 0)
+                    {
+                        throw new InvalidOperationException($"Record size cannot be zero.");
+                    }
+
+                    throw new InvalidOperationException($"Invalid record size.");
+                }
+
                 if (recordSize > StorageSize)
                 {
                     throw new InvalidOperationException($"Record size too large: {recordSize}");
@@ -342,6 +379,18 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
                     }
 
                     throw new InvalidOperationException($"Clustered key {clusteredKey} already exist in this page.");
+                }
+
+                if (high == low)
+                {
+                    if (compareResult < 0)
+                    {
+                        return mid;
+                    }
+                    else
+                    {
+                        return mid + 1;
+                    }
                 }
 
                 if (compareResult < 0)

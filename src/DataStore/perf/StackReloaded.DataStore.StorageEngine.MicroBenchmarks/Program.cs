@@ -9,12 +9,14 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks
 {
     class Program
     {
-        static void Main()
+        static void Main(string[] args)
         {
+            var argsList = new List<string>(args);
+
             var benchmarkJobAttribute = new BenchmarkJobAttribute();
             var config = benchmarkJobAttribute.Config;
 
-            var runningSummaries = Runs(config);
+            var runningSummaries = Runs(argsList, config);
             var collectedSummaries = new List<Summary>();
 
             foreach (var summary in runningSummaries)
@@ -34,22 +36,17 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks
             }
         }
 
-        private static IEnumerable<Summary> Runs(IConfig config)
+        private static IEnumerable<Summary> Runs(List<string> argsList, IConfig config, Type singleBenchmarkType = null)
         {
-            Type singleBenchmarkType = null;
-            //Type singleBenchmarkType = typeof(Pages.PageBenchmarks.PageDeleteRawBytesBenchmarks);
-
             if (singleBenchmarkType != null)
             {
-                yield return BenchmarkRunner.Run(singleBenchmarkType, config);
-                yield break;
+                var singleSummary = BenchmarkRunner.Run(singleBenchmarkType, config);
+                return new[] { singleSummary };
             }
 
-            yield return BenchmarkRunner.Run<Collections.BPlusTreeBenchmarks.BPlusTreeInsertBenchmarks>(config);
-            yield return BenchmarkRunner.Run<Collections.BPlusTreeBenchmarks.BPlusTreeDeleteBenchmarks>(config);
-
-            yield return BenchmarkRunner.Run<Pages.PageBenchmarks.PageInsertRawBytesBenchmarks>(config);
-            yield return BenchmarkRunner.Run<Pages.PageBenchmarks.PageDeleteRawBytesBenchmarks>(config);
+            return BenchmarkSwitcher
+                .FromAssembly(typeof(Program).Assembly)
+                .Run(argsList.ToArray(), config: config);
         }
     }
 }

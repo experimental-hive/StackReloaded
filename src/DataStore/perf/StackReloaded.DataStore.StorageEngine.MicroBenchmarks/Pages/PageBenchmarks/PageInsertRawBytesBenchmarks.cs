@@ -8,12 +8,14 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
 {
     public class PageInsertRawBytesBenchmarks
     {
+        private short[] keys;
         private byte[] b;
         private byte[] recordOf9Bytes;
 
         [GlobalSetup]
         public void GlobalSetup()
         {
+            this.keys = new short[] { 1, 3, 5, 7, 9, 2, 4, 6, 8, 10 };
             this.b = new byte[8192];
             this.recordOf9Bytes = new byte[9];
         }
@@ -21,6 +23,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
         [Benchmark]
         public unsafe void InsertRawBytes()
         {
+            short[] keys = this.keys;
             byte[] b = this.b;
             Array.Clear(b, 0, b.Length);
 
@@ -30,11 +33,10 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
                 p.FreeCount = Page.PageSize - PageHeader.SizeOf;
                 p.FreeData = PageHeader.SizeOf;
 
-                short clusteredKey = 1;
                 byte[] recordBytes = this.recordOf9Bytes;
-                Array.Clear(recordOf9Bytes, 0, recordOf9Bytes.Length);
+                Array.Clear(recordBytes, 0, recordBytes.Length);
                 BinaryUtil.WriteInt16(recordBytes, 0, (short)recordBytes.Length);
-                BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
+                BinaryUtil.WriteInt16(recordBytes, 2, 0);
                 recordBytes[4] = 4;
                 recordBytes[5] = 5;
                 recordBytes[6] = 6;
@@ -49,9 +51,10 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
 
                 IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
 
-                for (int ri = 0; ri < 736; ri++)
+                for (int i = 0; i < keys.Length; i++)
                 {
-                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey++);
+                    var clusteredKey = keys[i];
+                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
                     p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
             }

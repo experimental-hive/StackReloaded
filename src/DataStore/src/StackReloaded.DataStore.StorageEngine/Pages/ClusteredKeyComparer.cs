@@ -41,14 +41,11 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
         private static unsafe int Compare(ComparandType t, byte* pValueA, byte* pValueB)
         {
-            switch (t)
+            return t switch
             {
-                case ComparandType.Short:
-                    return Compare(BinaryUtil.ReadInt16(pValueA), BinaryUtil.ReadInt16(pValueB));
-
-            }
-
-            throw new InvalidOperationException();
+                ComparandType.Short => Compare(BinaryUtil.ReadInt16(pValueA), BinaryUtil.ReadInt16(pValueB)),
+                _ => throw new InvalidOperationException(),
+            };
         }
 
         private static int Compare(short a, short b)

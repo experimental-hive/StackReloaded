@@ -8,13 +8,14 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
 {
     public class PageDeleteRawBytesBenchmarks
     {
+        private short[] keys;
         private byte[] b;
         private byte[] recordOf9Bytes;
-        private short clusteredKey;
 
         [GlobalSetup]
         public unsafe void GlobalSetup()
         {
+            this.keys = new short[] { 1, 3, 5, 7, 9, 2, 4, 6, 8, 10 };
             this.b = new byte[8192];
             this.recordOf9Bytes = new byte[9];
         }
@@ -22,9 +23,8 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
         [IterationSetup]
         public unsafe void IterationSetup()
         {
+            short[] keys = this.keys;
             byte[] b = this.b;
-            short clusteredKey = 1;
-
             Array.Clear(b, 0, b.Length);
 
             fixed (byte* pointer = b)
@@ -34,8 +34,9 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
                 p.FreeData = PageHeader.SizeOf;
 
                 byte[] recordBytes = this.recordOf9Bytes;
+                Array.Clear(recordBytes, 0, recordBytes.Length);
                 BinaryUtil.WriteInt16(recordBytes, 0, (short)recordBytes.Length);
-                BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
+                BinaryUtil.WriteInt16(recordBytes, 2, 0);
                 recordBytes[4] = 4;
                 recordBytes[5] = 5;
                 recordBytes[6] = 6;
@@ -50,21 +51,20 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
 
                 IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
 
-                for (int ri = 0; ri < 736; ri++)
+                for (int i = 0; i < keys.Length; i++)
                 {
-                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey++);
+                    var clusteredKey = keys[i];
+                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
                     p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
             }
-
-            this.clusteredKey = clusteredKey;
         }
 
         [Benchmark]
         public unsafe void DeleteRawBytes()
         {
+            short[] keys = this.keys;
             byte[] b = this.b;
-            short clusteredKey = this.clusteredKey;
 
             fixed (byte* pointer = b)
             {
@@ -77,9 +77,9 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
 
                 IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
 
-                for (int ri = 736 - 1; ri >= 0; ri--)
+                for (int i = 0; i < keys.Length; i++)
                 {
-                    clusteredKey--;
+                    var clusteredKey = keys[i];
                     p.DeleteRawBytes(clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
             }

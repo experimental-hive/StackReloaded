@@ -57,7 +57,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 1
             {
                 bplusTree.RootNode.IsLeaf.Should().BeTrue();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 rootNode.Keys.Should().HaveCount(1);
                 rootNode.Values.Should().HaveCount(1);
                 rootNode.Keys[0].Should().Be(1);
@@ -71,7 +71,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 2
             {
                 bplusTree.RootNode.IsLeaf.Should().BeTrue();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 rootNode.Keys.Should().HaveCount(3);
                 rootNode.Values.Should().HaveCount(3);
                 rootNode.Keys[0].Should().Be(1);
@@ -88,17 +88,17 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 3
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(1);
                 rootNode.NodePointers.Should().HaveCount(2);
                 rootNode.Keys[0].Should().Be(5);
-                var leafNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(2);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
                 leafNode0.Keys[1].Should().Be(3);
                 leafNode0.Values[1].Should().Be(300);
-                var leafNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(2);
                 leafNode1.Keys[0].Should().Be(5);
                 leafNode1.Values[0].Should().Be(500);
@@ -112,17 +112,17 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 4
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(1);
                 rootNode.NodePointers.Should().HaveCount(2);
                 rootNode.Keys[0].Should().Be(5);
-                var leafNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(2);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
                 leafNode0.Keys[1].Should().Be(3);
                 leafNode0.Values[1].Should().Be(300);
-                var leafNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(3);
                 leafNode1.Keys[0].Should().Be(5);
                 leafNode1.Values[0].Should().Be(500);
@@ -138,11 +138,11 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 5
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(1);
                 rootNode.NodePointers.Should().HaveCount(2);
                 rootNode.Keys[0].Should().Be(5);
-                var leafNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(3);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
@@ -150,7 +150,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
                 leafNode0.Values[1].Should().Be(200);
                 leafNode0.Keys[2].Should().Be(3);
                 leafNode0.Values[2].Should().Be(300);
-                var leafNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(3);
                 leafNode1.Keys[0].Should().Be(5);
                 leafNode1.Values[0].Should().Be(500);
@@ -166,24 +166,24 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 6
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(2);
                 rootNode.NodePointers.Should().HaveCount(3);
                 rootNode.Keys[0].Should().Be(3);
                 rootNode.Keys[1].Should().Be(5);
-                var leafNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(2);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
                 leafNode0.Keys[1].Should().Be(2);
                 leafNode0.Values[1].Should().Be(200);
-                var leafNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(2);
                 leafNode1.Keys[0].Should().Be(3);
                 leafNode1.Values[0].Should().Be(300);
                 leafNode1.Keys[1].Should().Be(4);
                 leafNode1.Values[1].Should().Be(400);
-                var leafNode2 = rootNode.NodePointers[2].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode2 = rootNode.NodePointers[2].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode2.Keys.Should().HaveCount(3);
                 leafNode2.Keys[0].Should().Be(5);
                 leafNode2.Values[0].Should().Be(500);
@@ -199,31 +199,31 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 7
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(3);
                 rootNode.NodePointers.Should().HaveCount(4);
                 rootNode.Keys[0].Should().Be(3);
                 rootNode.Keys[1].Should().Be(5);
                 rootNode.Keys[2].Should().Be(7);
-                var leafNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(2);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
                 leafNode0.Keys[1].Should().Be(2);
                 leafNode0.Values[1].Should().Be(200);
-                var leafNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(2);
                 leafNode1.Keys[0].Should().Be(3);
                 leafNode1.Values[0].Should().Be(300);
                 leafNode1.Keys[1].Should().Be(4);
                 leafNode1.Values[1].Should().Be(400);
-                var leafNode2 = rootNode.NodePointers[2].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode2 = rootNode.NodePointers[2].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode2.Keys.Should().HaveCount(2);
                 leafNode2.Keys[0].Should().Be(5);
                 leafNode2.Values[0].Should().Be(500);
                 leafNode2.Keys[1].Should().Be(6);
                 leafNode2.Values[1].Should().Be(600);
-                var leafNode3 = rootNode.NodePointers[3].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode3 = rootNode.NodePointers[3].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode3.Keys.Should().HaveCount(2);
                 leafNode3.Keys[0].Should().Be(7);
                 leafNode3.Values[0].Should().Be(700);
@@ -237,31 +237,31 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 8
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(3);
                 rootNode.NodePointers.Should().HaveCount(4);
                 rootNode.Keys[0].Should().Be(3);
                 rootNode.Keys[1].Should().Be(5);
                 rootNode.Keys[2].Should().Be(7);
-                var leafNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(2);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
                 leafNode0.Keys[1].Should().Be(2);
                 leafNode0.Values[1].Should().Be(200);
-                var leafNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(2);
                 leafNode1.Keys[0].Should().Be(3);
                 leafNode1.Values[0].Should().Be(300);
                 leafNode1.Keys[1].Should().Be(4);
                 leafNode1.Values[1].Should().Be(400);
-                var leafNode2 = rootNode.NodePointers[2].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode2 = rootNode.NodePointers[2].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode2.Keys.Should().HaveCount(2);
                 leafNode2.Keys[0].Should().Be(5);
                 leafNode2.Values[0].Should().Be(500);
                 leafNode2.Keys[1].Should().Be(6);
                 leafNode2.Values[1].Should().Be(600);
-                var leafNode3 = rootNode.NodePointers[3].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode3 = rootNode.NodePointers[3].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode3.Keys.Should().HaveCount(3);
                 leafNode3.Keys[0].Should().Be(7);
                 leafNode3.Values[0].Should().Be(700);
@@ -277,45 +277,45 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             // assert 9
             {
                 bplusTree.RootNode.IsLeaf.Should().BeFalse();
-                var rootNode = bplusTree.RootNode.Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var rootNode = bplusTree.RootNode.Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 rootNode.Keys.Should().HaveCount(1);
                 rootNode.NodePointers.Should().HaveCount(2);
                 rootNode.Keys[0].Should().Be(7);
-                var internalNode0 = rootNode.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var internalNode0 = rootNode.NodePointers[0].Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 internalNode0.Keys.Should().HaveCount(2);
                 internalNode0.NodePointers.Should().HaveCount(3);
                 internalNode0.Keys[0].Should().Be(3);
                 internalNode0.Keys[1].Should().Be(5);
-                var leafNode0 = internalNode0.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode0 = internalNode0.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode0.Keys.Should().HaveCount(2);
                 leafNode0.Keys[0].Should().Be(1);
                 leafNode0.Values[0].Should().Be(100);
                 leafNode0.Keys[1].Should().Be(2);
                 leafNode0.Values[1].Should().Be(200);
-                var leafNode1 = internalNode0.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode1 = internalNode0.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode1.Keys.Should().HaveCount(2);
                 leafNode1.Keys[0].Should().Be(3);
                 leafNode1.Values[0].Should().Be(300);
                 leafNode1.Keys[1].Should().Be(4);
                 leafNode1.Values[1].Should().Be(400);
-                var leafNode2 = internalNode0.NodePointers[2].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode2 = internalNode0.NodePointers[2].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode2.Keys.Should().HaveCount(2);
                 leafNode2.Keys[0].Should().Be(5);
                 leafNode2.Values[0].Should().Be(500);
                 leafNode2.Keys[1].Should().Be(6);
                 leafNode2.Values[1].Should().Be(600);
-                var internalNode1 = rootNode.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.InternalNode>().Subject;
+                var internalNode1 = rootNode.NodePointers[1].Should().BeAssignableTo<IBPlusTreeInternalNode<int>>().Subject;
                 internalNode1.Keys.Should().HaveCount(1);
                 internalNode1.NodePointers.Should().HaveCount(2);
                 internalNode1.Keys[0].Should().Be(9);
-                var leafNode3 = internalNode1.NodePointers[0].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode3 = internalNode1.NodePointers[0].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode3.Keys.Should().HaveCount(2);
                 leafNode3.Values.Should().HaveCount(2);
                 leafNode3.Keys[0].Should().Be(7);
                 leafNode3.Values[0].Should().Be(700);
                 leafNode3.Keys[1].Should().Be(8);
                 leafNode3.Values[1].Should().Be(800);
-                var leafNode4 = internalNode1.NodePointers[1].Should().BeOfType<BPlusTree<int, int>.LeafNode>().Subject;
+                var leafNode4 = internalNode1.NodePointers[1].Should().BeAssignableTo<IBPlusTreeLeafNode<int, int>>().Subject;
                 leafNode4.Keys.Should().HaveCount(2);
                 leafNode4.Values.Should().HaveCount(2);
                 leafNode4.Keys[0].Should().Be(9);

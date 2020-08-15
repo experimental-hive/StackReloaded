@@ -211,6 +211,19 @@ namespace StackReloaded.DataStore.StorageEngine.Utils
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe bool AreRawBytesCleared(byte* rawBytes, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (rawBytes[i] != 0)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SwapBitShift(long value)
         {
             ulong uvalue = (ulong)value;

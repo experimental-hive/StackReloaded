@@ -9,17 +9,17 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
     {
         public static void Construct(IBPlusTree<int, int> bplusTree, object data)
         {
-            if (bplusTree is BPlusTree<int, int> castedBPlusTree)
+            switch (bplusTree)
             {
-                Construct(castedBPlusTree, data);
+                case BPlusTree<int, int> castedBPlusTree:
+                    Construct(castedBPlusTree, data);
+                    break;
+                case SimpleInMemoryBPlusTree<int, int> simpleInMemoryBPlusTree:
+                    Construct(simpleInMemoryBPlusTree, data);
+                    break;
+                default:
+                    throw new NotImplementedException();
             }
-
-            if (bplusTree is SimpleInMemoryBPlusTree<int, int> simpleInMemoryBPlusTree)
-            {
-                Construct(simpleInMemoryBPlusTree, data);
-            }
-
-            throw new NotImplementedException();
         }
 
         public static void Construct(BPlusTree<int, int> bplusTree, object data)

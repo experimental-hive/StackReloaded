@@ -18,15 +18,15 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks
         {
             var job = new Job()
                 .WithLaunchCount(1)
-                .WithIterationTime(TimeInterval.FromMilliseconds(100))
-                .WithWarmupCount(3)
-                .WithIterationCount(3)
+                //.WithIterationTime(TimeInterval.FromMilliseconds(100))
+                //.WithWarmupCount(3)
+                //.WithIterationCount(3)
                 .WithToolchain(CsProjCoreToolchain.NetCoreApp31);
 
             var config = new ManualConfig();
             config.AddColumn(StatisticColumn.Min, StatisticColumn.Max);
             config.AddColumnProvider(DefaultConfig.Instance.GetColumnProviders().ToArray());
-            config.AddExporter(DefaultConfig.Instance.GetExporters().ToArray());
+            //config.AddExporter(DefaultConfig.Instance.GetExporters().ToArray());
             config.AddDiagnoser(DefaultConfig.Instance.GetDiagnosers().ToArray());
             config.AddAnalyser(DefaultConfig.Instance.GetAnalysers().Where(x => x as MultimodalDistributionAnalyzer == null).ToArray());
             config.AddJob(job);
