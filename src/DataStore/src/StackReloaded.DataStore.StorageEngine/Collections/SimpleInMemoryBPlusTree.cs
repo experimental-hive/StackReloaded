@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 namespace StackReloaded.DataStore.StorageEngine.Collections
 {
-    public class BPlusTree<TKey, TValue> : IBPlusTree<TKey, TValue>, IInternalBPlusTree, IInternalBPlusTree<TKey, TValue>
+    public class SimpleInMemoryBPlusTree<TKey, TValue> : IBPlusTree<TKey, TValue>, IInternalBPlusTree, IInternalBPlusTree<TKey, TValue>
     {
         [ThreadStatic]
         private static readonly Stack<InternalNode> _stackParents = new Stack<InternalNode>();
 
-        public BPlusTree(int order, IComparer<TKey> keyComparer)
+        public SimpleInMemoryBPlusTree(int order, IComparer<TKey> keyComparer)
         {
             if (order < 3)
             {
@@ -333,9 +333,9 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return keys.Count;
             }
 
-            public INode GetNodePointer(TKey key, BPlusTree<TKey, TValue> bplusTree) => NodePointers[GetIndexOfNodePointer(key, bplusTree.KeyComparer)];
+            public INode GetNodePointer(TKey key, SimpleInMemoryBPlusTree<TKey, TValue> bplusTree) => NodePointers[GetIndexOfNodePointer(key, bplusTree.KeyComparer)];
 
-            public (InternalNode NewRightInternalNode, TKey RemovedFirstKeyOfRightNode) AddEntry(TKey key, INode leftNodePointer, INode rightNodePointer, BPlusTree<TKey, TValue> bplusTree)
+            public (InternalNode NewRightInternalNode, TKey RemovedFirstKeyOfRightNode) AddEntry(TKey key, INode leftNodePointer, INode rightNodePointer, SimpleInMemoryBPlusTree<TKey, TValue> bplusTree)
             {
                 var keyComparer = bplusTree.KeyComparer;
                 var keys = Keys;
@@ -453,7 +453,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             (IBPlusTreeInternalNode<TKey> NewRightInternalNode, TKey RemovedFirstKeyOfRightNode) IBPlusTreeInternalNode<TKey>.AddEntry(TKey key, IBPlusTreeNode leftNodePointer, IBPlusTreeNode rightNodePointer, IInternalBPlusTree bplusTree)
             {
-                return AddEntry(key, (INode)leftNodePointer, (INode)rightNodePointer, (BPlusTree<TKey, TValue>)bplusTree);
+                return AddEntry(key, (INode)leftNodePointer, (INode)rightNodePointer, (SimpleInMemoryBPlusTree<TKey, TValue>)bplusTree);
             }
         }
 
@@ -520,7 +520,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return true;
             }
 
-            public LeafNode AddEntry(TKey key, TValue value, BPlusTree<TKey, TValue> bplusTree)
+            public LeafNode AddEntry(TKey key, TValue value, SimpleInMemoryBPlusTree<TKey, TValue> bplusTree)
             {
                 var keyComparer = bplusTree.KeyComparer;
                 var keys = Keys;
@@ -660,7 +660,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.AddEntry(TKey key, TValue value, IInternalBPlusTree bplusTree)
             {
-                return AddEntry(key, value, (BPlusTree<TKey, TValue>)bplusTree);
+                return AddEntry(key, value, (SimpleInMemoryBPlusTree<TKey, TValue>)bplusTree);
             }
         }
     }

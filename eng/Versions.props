@@ -6,8 +6,8 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Microsoft AspNetCore dependencies">
-    <MicrosoftAspNetCoreMvcVersioningPackageVersion>4.0.0-preview8.19405.7</MicrosoftAspNetCoreMvcVersioningPackageVersion>
-    <MicrosoftAspNetCoreMvcVersioningApiExplorerPackageVersion>4.0.0-preview8.19405.7</MicrosoftAspNetCoreMvcVersioningApiExplorerPackageVersion>
+    <MicrosoftAspNetCoreMvcVersioningPackageVersion>4.0.0</MicrosoftAspNetCoreMvcVersioningPackageVersion>
+    <MicrosoftAspNetCoreMvcVersioningApiExplorerPackageVersion>4.0.0</MicrosoftAspNetCoreMvcVersioningApiExplorerPackageVersion>
   </PropertyGroup>
 
 </Project>

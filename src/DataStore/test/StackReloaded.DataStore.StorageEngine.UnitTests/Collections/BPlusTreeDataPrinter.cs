@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Linq;
 using System.Text;
+using StackReloaded.DataStore.StorageEngine.Collections;
 
-namespace StackReloaded.DataStore.StorageEngine.Collections
+namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
 {
     public static class BPlusTreeDataPrinter
     {
-        public static string PrintData<TKey, TValue>(BPlusTree<TKey, TValue> bplusTree)
+        internal static string PrintData<TKey, TValue>(IInternalBPlusTree<TKey, TValue> bplusTree)
         {
             if (bplusTree == null)
             {
@@ -16,19 +18,19 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             sb.AppendLine();
 
-            PrintNode(sb, 0, bplusTree.RootNode);
+            PrintNode<TKey, TValue>(sb, 0, bplusTree.RootNode);
 
             return sb.ToString();
         }
 
-        private static void PrintNode<TKey, TValue>(StringBuilder sb, int level, BPlusTree<TKey, TValue>.INode node)
+        private static void PrintNode<TKey, TValue>(StringBuilder sb, int level, IBPlusTreeNode node)
         {
             switch (node)
             {
-                case BPlusTree<TKey, TValue>.InternalNode internalNode:
-                    PrintInternalNode(sb, level, internalNode);
+                case IBPlusTreeInternalNode<TKey> internalNode:
+                    PrintInternalNode<TKey, TValue>(sb, level, internalNode);
                     break;
-                case BPlusTree<TKey, TValue>.LeafNode leafNode:
+                case IBPlusTreeLeafNode<TKey, TValue> leafNode:
                     PrintLeafNode(sb, level, leafNode);
                     break;
                 default:
@@ -36,7 +38,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             }
         }
 
-        private static void PrintInternalNode<TKey, TValue>(StringBuilder sb, int level, BPlusTree<TKey, TValue>.InternalNode internalNode)
+        private static void PrintInternalNode<TKey, TValue>(StringBuilder sb, int level, IBPlusTreeInternalNode<TKey> internalNode)
         {
             if (internalNode == null)
             {
@@ -48,32 +50,36 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 sb.Append("  ");
             }
 
-            if (internalNode.Keys.Count == 0)
+            var keys = internalNode.Keys.ToList();
+
+            if (keys.Count == 0)
             {
                 sb.Append("(empty keys)");
             }
             else
             {
-                for (int i = 0; i < internalNode.Keys.Count; i++)
+                for (int i = 0; i < keys.Count; i++)
                 {
                     if (i != 0)
                     {
                         sb.Append(", ");
                     }
 
-                    sb.Append(internalNode.Keys[i].ToString());
+                    sb.Append(keys[i].ToString());
                 }
             }
 
             sb.AppendLine();
 
-            for (int i = 0; i < internalNode.NodePointers.Count; i++)
+            var nodePointers = internalNode.NodePointers.ToList();
+
+            for (int i = 0; i < nodePointers.Count; i++)
             {
-                PrintNode(sb, level + 1, internalNode.NodePointers[i]);
+                PrintNode<TKey, TValue>(sb, level + 1, nodePointers[i]);
             }
         }
 
-        private static void PrintLeafNode<TKey, TValue>(StringBuilder sb, int level, BPlusTree<TKey, TValue>.LeafNode leafNode)
+        private static void PrintLeafNode<TKey, TValue>(StringBuilder sb, int level, IBPlusTreeLeafNode<TKey, TValue> leafNode)
         {
             if (leafNode == null)
             {
@@ -85,20 +91,22 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 sb.Append("  ");
             }
 
-            if (leafNode.Keys.Count == 0)
+            var keys = leafNode.Keys.ToList();
+
+            if (keys.Count == 0)
             {
                 sb.Append("(empty keys)");
             }
             else
             {
-                for (int i = 0; i < leafNode.Keys.Count; i++)
+                for (int i = 0; i < keys.Count; i++)
                 {
                     if (i != 0)
                     {
                         sb.Append(", ");
                     }
 
-                    sb.Append(leafNode.Keys[i].ToString());
+                    sb.Append(keys[i].ToString());
                 }
             }
 
