@@ -193,6 +193,15 @@ namespace StackReloaded.DataStore.StorageEngine.Utils
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void WriteRawBytes(byte* rawBytes, byte* val, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                rawBytes[i] = val[i];
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void WriteRawBytes(byte* rawBytes, byte[] val, int startIndex, int count)
         {
             for (int i = 0, vi = startIndex; i < count; i++, vi++)

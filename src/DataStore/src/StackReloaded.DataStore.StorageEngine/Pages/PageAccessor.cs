@@ -12,22 +12,22 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
         public void InsertRawBytes<TKey>(Page page, ReadOnlySpan<byte> recordBytes, TKey clusteredKey, ClusteredKeyResolverDelegate<TKey> clusteredKeyResolver, IComparer<TKey> clusteredKeyComparer)
         {
-            var recordSize = recordBytes.Length;
+            var recordSizeOfNewRecord = recordBytes.Length;
             var maxStorageSize = DataPageMaxStorageSize;
 
-            if (recordSize > maxStorageSize)
+            if (recordSizeOfNewRecord > maxStorageSize)
             {
-                throw new InvalidOperationException($"Record size too large: {recordSize}.");
+                throw new InvalidOperationException($"Record size too large: {recordSizeOfNewRecord}.");
             }
 
-            if (recordSize > (Page.PageSize - PageHeader.SizeOf - 2))
+            if (recordSizeOfNewRecord > (Page.PageSize - PageHeader.SizeOf - 2))
             {
-                throw new InvalidOperationException($"Record with size {recordSize} cannot fit on this page.");
+                throw new InvalidOperationException($"Record with size {recordSizeOfNewRecord} cannot fit on this page.");
             }
 
-            if (recordSize > (page.FreeDataSize - 2))
+            if (recordSizeOfNewRecord > (page.FreeDataSize - 2))
             {
-                throw new InvalidOperationException($"Record with size {recordSize} cannot fit on this page.");
+                throw new InvalidOperationException($"Record with size {recordSizeOfNewRecord} cannot fit on this page.");
             }
 
             if (clusteredKey != null)
@@ -47,112 +47,133 @@ namespace StackReloaded.DataStore.StorageEngine.Pages
 
             if (slotCount == 0)
             {
-                int slotEntry = PageHeader.SizeOf;
-                byte* slotRecordPoiner = page.Pointer + slotEntry;
-                BinaryUtil.WriteRawBytes(slotRecordPoiner, recordBytes);
-                BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - Page.SlotSize, (short)slotEntry);
+                BinaryUtil.WriteRawBytes(page.Pointer + PageHeader.SizeOf, recordBytes);
+                BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - Page.SlotSize, PageHeader.SizeOf);
 
                 page.SlotCount = 1;
-                page.FreeDataSize = (short)(Page.PageSize - PageHeader.SizeOf - recordSize - Page.SlotSize); // this.FreeCount = (short)(StorageSize - recordLength - 2);
-                page.FreeDataStart = (short)(PageHeader.SizeOf + recordSize);
+                page.FreeDataSize = (short)(Page.PageSize - PageHeader.SizeOf - recordSizeOfNewRecord - Page.SlotSize); // this.FreeCount = (short)(StorageSize - recordLength - 2);
+                page.FreeDataStart = (short)(PageHeader.SizeOf + recordSizeOfNewRecord);
+                return;
             }
 
             var slotArrayPool = ArrayPool<short>.Shared;
             short[] slotArray = slotArrayPool.Rent(RentSlotCount);
 
-            var recordsLayoutPool = ArrayPool<ValueTuple<short, short>>.Shared;
-            ValueTuple<short, short>[] recordsLayout = recordsLayoutPool.Rent(RentSlotCount);
+            var freeDataSize = Page.PageSize - page.FreeDataStart - slotCount * Page.SlotSize;
+            var recordDoesNotFitInFreeDataSection = recordSizeOfNewRecord > freeDataSize - Page.SlotSize;
 
-            if (slotCount != 0)
+            short freeDataStart = page.FreeDataStart;
+            int insertAtSlotIndex = slotCount;
+            int recordOffsetForNewRecord = freeDataStart;
+            bool recordOffsetForNewRecordFromFreeData = true;
+
+            if (recordDoesNotFitInFreeDataSection)
             {
-                var freeDataSize = Page.PageSize - page.FreeDataStart - slotCount * Page.SlotSize;
-                var recordDoesNotFitInFreeDataSection = recordSize > freeDataSize - Page.SlotSize;
+                var recordsLayoutPool = ArrayPool<ValueTuple<short, short>>.Shared;
+                ValueTuple<short, short>[] recordsLayout = recordsLayoutPool.Rent(RentSlotCount);
 
-                short freeData = page.FreeDataStart;
-                int slotEntry = freeData;
-
-                if (recordDoesNotFitInFreeDataSection)
+                for (int i = 0; i < slotCount; i++)
                 {
-                    for (int i = 0; i < slotCount; i++)
+                    short offset = BinaryUtil.ReadInt16(page.Pointer + Page.PageSize - (i * Page.SlotSize) - Page.SlotSize);
+                    short size = BinaryUtil.ReadInt16(page.Pointer + offset);
+
+                    slotArray[i] = offset;
+                    recordsLayout[i] = ValueTuple.Create(offset, size);
+                }
+
+                var offsetRecordComparer = Comparer<ValueTuple<short, short>>.Create((x, y) => x.Item1 - y.Item1);
+                Array.Sort(recordsLayout, 0, slotCount, offsetRecordComparer);
+
+                // Proberen gaten op te vullen: zoek naar een beschikbare record entry.
+                for (int i = 0; i < slotCount - 1; i++)
+                {
+                    var tuple = recordsLayout[i];
+                    var nextTuple = recordsLayout[i + 1];
+                    var recordEnd = tuple.Item1 + tuple.Item2;
+                    if (recordEnd + recordSizeOfNewRecord <= nextTuple.Item1)
                     {
-                        short slotRecordOffset = BinaryUtil.ReadInt16(page.Pointer + Page.PageSize - (i * Page.SlotSize) - Page.SlotSize);
-                        byte* slotslotRecordPoiner = page.Pointer + slotRecordOffset;
-                        short slotRecordSize = BinaryUtil.ReadInt16(slotslotRecordPoiner);
-
-                        slotArray[i] = slotRecordOffset;
-                        recordsLayout[i] = ValueTuple.Create(slotRecordSize, slotRecordSize);
+                        recordOffsetForNewRecord = (short)recordEnd;
+                        recordOffsetForNewRecordFromFreeData = false;
+                        break;
                     }
+                }
 
-                    // TODO Optimize using System.Array.Sort(...)
-                    // var orderedRecordsLayout = recordsLayout.OrderBy(x => x.Item1).ToList();
+                if (recordOffsetForNewRecordFromFreeData)
+                {
+                    short currentRecordStart = PageHeader.SizeOf;
 
-                    // TODO Check/Validating records layout...
-
-                    // Proberen gaten op te vullen: zoek naar een slot entry.
-                    bool slotEntryFound = false;
-                    for (int i = 0; i < slotCount - 1; i++)
+                    for (int i = 0; i < slotCount; i++)
                     {
                         var tuple = recordsLayout[i];
-                        var nextTuple = recordsLayout[i + 1];
-                        var possibleSlotEntry = tuple.Item1 + tuple.Item2;
-                        if (possibleSlotEntry + recordSize < nextTuple.Item1)
+                        var offset = tuple.Item1;
+                        var size = tuple.Item2;
+
+                        if (tuple.Item1 > currentRecordStart)
                         {
-                            slotEntry = (short)possibleSlotEntry;
-                            slotEntryFound = true;
-                            break;
+                            var newOffset = currentRecordStart;
+                            slotArray[i] = newOffset;
+                            BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (i * Page.SlotSize) - Page.SlotSize, slotArray[i]);
+                            BinaryUtil.WriteRawBytes(page.Pointer + newOffset, page.Pointer + offset, size);
                         }
-                    }
-
-                    if (!slotEntryFound)
-                    {
-                        // TODO
-                        throw new NotImplementedException();
-                    }
-                }
-
-                BinaryUtil.WriteRawBytes(page.Pointer + slotEntry, recordBytes);
-
-                int extraFreeDataUsed = recordSize;
-
-                if (clusteredKey == null)
-                {
-                    BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (slotCount * Page.SlotSize) - Page.SlotSize, (short)slotEntry);
-                }
-                else
-                {
-                    // binary search algoritm
-                    // slot array entries moeten in volgorde zoals volgens clustered index
-                    for (int i = 0; i < slotCount; i++)
-                    {
-                        slotArray[i] = BinaryUtil.ReadInt16(page.Pointer + Page.PageSize - (i * Page.SlotSize) - Page.SlotSize);
-                    }
-
-                    int insertAtSlotIndex = BinarySearchSlotIndexByClusteredKey(page, clusteredKey, clusteredKeyResolver, clusteredKeyComparer, slotCount, slotArray);
-
-                    if (insertAtSlotIndex == -1)
-                    {
-                        insertAtSlotIndex = slotCount;
-                    }
-                    else if (insertAtSlotIndex < slotCount)
-                    {
-                        for (int i = slotCount - 1; i >= insertAtSlotIndex; i--)
+                        else if (tuple.Item1 < currentRecordStart)
                         {
-                            var j = i + 1;
-                            slotArray[j] = slotArray[i];
-                            BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (j * Page.SlotSize) - Page.SlotSize, slotArray[j]);
+                            throw new InvalidOperationException();
                         }
+
+                        currentRecordStart += size;
                     }
 
-                    slotArray[insertAtSlotIndex] = (short)slotEntry;
-                    BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (insertAtSlotIndex * Page.SlotSize) - Page.SlotSize, slotArray[insertAtSlotIndex]);
+                    recordOffsetForNewRecord = freeDataStart = page.FreeDataStart = currentRecordStart;
                 }
 
-                page.SlotCount = (short)(slotCount + 1);
-                page.FreeDataSize -= (short)(recordSize + Page.SlotSize);
-                page.FreeDataStart = (short)(freeData + extraFreeDataUsed);
+                recordsLayoutPool.Return(recordsLayout);
             }
 
-            recordsLayoutPool.Return(recordsLayout);
+            BinaryUtil.WriteRawBytes(page.Pointer + recordOffsetForNewRecord, recordBytes);
+
+            int extraFreeDataUsed = recordSizeOfNewRecord;
+
+            if (clusteredKey == null)
+            {
+                BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (slotCount * Page.SlotSize) - Page.SlotSize, (short)recordOffsetForNewRecord);
+            }
+            else
+            {
+                // binary search algoritm
+                // slot array entries moeten in volgorde zoals volgens clustered index
+                for (int i = 0; i < slotCount; i++)
+                {
+                    slotArray[i] = BinaryUtil.ReadInt16(page.Pointer + Page.PageSize - (i * Page.SlotSize) - Page.SlotSize);
+                }
+
+                insertAtSlotIndex = BinarySearchSlotIndexByClusteredKey(page, clusteredKey, clusteredKeyResolver, clusteredKeyComparer, slotCount, slotArray);
+
+                if (insertAtSlotIndex == -1)
+                {
+                    insertAtSlotIndex = slotCount;
+                }
+                else if (insertAtSlotIndex < slotCount)
+                {
+                    for (int i = slotCount - 1; i >= insertAtSlotIndex; i--)
+                    {
+                        var j = i + 1;
+                        slotArray[j] = slotArray[i];
+                        BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (j * Page.SlotSize) - Page.SlotSize, slotArray[j]);
+                    }
+                }
+
+                slotArray[insertAtSlotIndex] = (short)recordOffsetForNewRecord;
+                BinaryUtil.WriteInt16(page.Pointer + Page.PageSize - (insertAtSlotIndex * Page.SlotSize) - Page.SlotSize, slotArray[insertAtSlotIndex]);
+            }
+
+            page.SlotCount = (short)(slotCount + 1);
+            page.FreeDataSize -= (short)(recordSizeOfNewRecord + Page.SlotSize);
+
+            if (recordOffsetForNewRecordFromFreeData)
+            {
+                page.FreeDataStart = (short)(freeDataStart + extraFreeDataUsed);
+            }
+
             slotArrayPool.Return(slotArray);
         }
 

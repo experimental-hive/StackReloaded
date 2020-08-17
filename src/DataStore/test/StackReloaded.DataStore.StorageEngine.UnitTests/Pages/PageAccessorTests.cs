@@ -11,7 +11,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
     public class PageAccessorTests
     {       
         [Fact]
-        public void StorageSizeMustBeLessOrEqualToMaximumPageStorageSize()
+        public void DataPageMaxStorageSizeMustBeLessOrEqualToMaximumPageStorageSize()
         {
             var maximumPageStorageSize = Page.PageSize - PageHeader.SizeOf - Page.SlotSize;
 
@@ -225,7 +225,6 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
                 ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
                 {
-                    Console.WriteLine($"rBytes: {rBytes.Length}");
                     var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
                     return rKey;
                 };
@@ -452,7 +451,6 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
                 ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
                 {
-                    Console.WriteLine($"rBytes: {rBytes.Length}");
                     var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
                     return rKey;
                 };
@@ -784,7 +782,6 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
                 ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
                 {
-                    Console.WriteLine($"rBytes: {rBytes.Length}");
                     var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
                     return rKey;
                 };
@@ -1082,6 +1079,463 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
                 p.FreeDataStart.Should().Be(96);
+            }
+        }
+
+        [Fact]
+        public unsafe void DeleteWhichCauseAHoleIntoDataSection()
+        {
+            // Insert 1, 3, 5
+            // Delete 3
+
+            // arrange
+            byte[] b = new byte[8192];
+            Array.Clear(b, 0, b.Length);
+
+            fixed (byte* pointer = b)
+            {
+                var pageAccessor = new PageAccessor();
+
+                var p = new Page(pointer);
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
+
+                byte[] recordBytes = new byte[9];
+                Array.Clear(recordBytes, 0, recordBytes.Length);
+                BinaryUtil.WriteInt16(recordBytes, 0, (short)recordBytes.Length);
+                BinaryUtil.WriteInt16(recordBytes, 2, 0);
+                recordBytes[4] = 4;
+                recordBytes[5] = 5;
+                recordBytes[6] = 6;
+                recordBytes[7] = 7;
+                recordBytes[8] = 8;
+
+                ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
+                {
+                    var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
+                    return rKey;
+                };
+
+                IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
+
+                void Insert(short clusteredKey)
+                {
+                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                void Delete(short clusteredKey)
+                {
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                short Slot(int index)
+                {
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
+                }
+
+                short ClusteredKey(short slot)
+                {
+                    BinaryUtil.ReadInt16(p.Pointer + slot).Should().Be(9);
+                    return BinaryUtil.ReadInt16(p.Pointer + slot + 2);
+                }
+
+                bool Cleared(short slot)
+                {
+                    return BinaryUtil.AreRawBytesCleared(p.Pointer + slot, 9);
+                }
+
+                // Insert 1, 3, 5
+                Insert(1);
+                Insert(3);
+                Insert(5);
+
+                // act
+                Delete(3);
+
+                // arrange
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(114);
+                Slot(2).Should().Be(0);
+                ClusteredKey(96).Should().Be(1);
+                Cleared(105).Should().BeTrue();
+                ClusteredKey(114).Should().Be(5);
+                p.SlotCount.Should().Be(2);
+                p.FreeDataStart.Should().Be(123);
+            }
+        }
+
+        [Fact]
+        public unsafe void InsertIntoFreeDataSectionEvenWhenRecordCanFillAvailableHole()
+        {
+            // Insert 1, 3, 5
+            // Delete 3
+            // Insert 2
+
+            // arrange
+            byte[] b = new byte[8192];
+            Array.Clear(b, 0, b.Length);
+
+            fixed (byte* pointer = b)
+            {
+                var pageAccessor = new PageAccessor();
+
+                var p = new Page(pointer);
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
+
+                byte[] recordBytes = new byte[9];
+                Array.Clear(recordBytes, 0, recordBytes.Length);
+                BinaryUtil.WriteInt16(recordBytes, 0, (short)recordBytes.Length);
+                BinaryUtil.WriteInt16(recordBytes, 2, 0);
+                recordBytes[4] = 4;
+                recordBytes[5] = 5;
+                recordBytes[6] = 6;
+                recordBytes[7] = 7;
+                recordBytes[8] = 8;
+
+                ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
+                {
+                    var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
+                    return rKey;
+                };
+
+                IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
+
+                void Insert(short clusteredKey)
+                {
+                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                void Delete(short clusteredKey)
+                {
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                short Slot(int index)
+                {
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
+                }
+
+                short ClusteredKey(short slot)
+                {
+                    BinaryUtil.ReadInt16(p.Pointer + slot).Should().Be(9);
+                    return BinaryUtil.ReadInt16(p.Pointer + slot + 2);
+                }
+
+                // Insert 1, 3, 5
+                Insert(1);
+                Insert(3);
+                Insert(5);
+
+                // Delete 3
+                Delete(3);
+
+                // act: Insert 2
+                Insert(2);
+                
+                // arrange
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(123);
+                Slot(2).Should().Be(114);
+                ClusteredKey(96).Should().Be(1);
+                ClusteredKey(123).Should().Be(2);
+                ClusteredKey(114).Should().Be(5);
+                p.SlotCount.Should().Be(3);
+                p.FreeDataStart.Should().Be(132);
+            }
+        }
+
+        [Fact]
+        public unsafe void InsertIntoAvailableHoleWhenRecordDoesNotFitInFreeDataSection()
+        {
+            // Insert 1, 3, 5
+            // Delete 3
+            // Insert 2
+
+            // arrange
+            byte[] b = new byte[8192];
+            Array.Clear(b, 0, b.Length);
+
+            fixed (byte* pointer = b)
+            {
+                var pageAccessor = new PageAccessor();
+
+                var p = new Page(pointer);
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
+
+                byte[] recordBytes = new byte[9];
+                Array.Clear(recordBytes, 0, recordBytes.Length);
+                BinaryUtil.WriteInt16(recordBytes, 0, (short)recordBytes.Length);
+                BinaryUtil.WriteInt16(recordBytes, 2, 0);
+                recordBytes[4] = 4;
+                recordBytes[5] = 5;
+                recordBytes[6] = 6;
+                recordBytes[7] = 7;
+                recordBytes[8] = 8;
+
+                ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
+                {
+                    var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
+                    return rKey;
+                };
+
+                IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
+
+                void Insert(short clusteredKey)
+                {
+                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                void Delete(short clusteredKey)
+                {
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                short Slot(int index)
+                {
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
+                }
+
+                short ClusteredKey(short slot)
+                {
+                    BinaryUtil.ReadInt16(p.Pointer + slot).Should().Be(9);
+                    return BinaryUtil.ReadInt16(p.Pointer + slot + 2);
+                }
+
+                bool Cleared(short slot)
+                {
+                    return BinaryUtil.AreRawBytesCleared(p.Pointer + slot, 9);
+                }
+
+                // act 1: Fill the page full
+                short clusteredKey = 1;
+                for (int ri = 0; ri < 736; ri++)
+                {
+                    Insert(clusteredKey++);
+                }
+
+                // arange 1
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(105);
+                Slot(2).Should().Be(114);
+                Slot(3).Should().Be(123);
+                Slot(4).Should().Be(132);
+                ClusteredKey(96).Should().Be(1);
+                ClusteredKey(105).Should().Be(2);
+                ClusteredKey(114).Should().Be(3);
+                p.SlotCount.Should().Be(736);
+                p.FreeDataSize.Should().Be(0);
+                p.FreeDataStart.Should().Be(6720);
+
+                // act 2: Delete 2
+                Delete(2);
+
+                // arrange 2
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(114);
+                Slot(2).Should().Be(123);
+                Slot(3).Should().Be(132);
+                ClusteredKey(96).Should().Be(1);
+                Cleared(105).Should().BeTrue();
+                ClusteredKey(114).Should().Be(3);
+                p.SlotCount.Should().Be(735);
+                p.FreeDataSize.Should().Be(11);
+                p.FreeDataStart.Should().Be(6720);
+
+                // act 3: Insert 737
+                Insert(737);
+
+                // arrange 3
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(114);
+                Slot(2).Should().Be(123);
+                Slot(3).Should().Be(132);
+                Slot(735).Should().Be(105);
+                ClusteredKey(96).Should().Be(1);
+                ClusteredKey(105).Should().Be(737);
+                ClusteredKey(114).Should().Be(3);
+                p.SlotCount.Should().Be(736);
+                p.FreeDataSize.Should().Be(0);
+                p.FreeDataStart.Should().Be(6720);
+            }
+        }
+
+        [Fact]
+        public unsafe void InsertIntoReclaimedFreeDataSectionWhenRecordDoesNotFitInFreeDataSectionOrAvailableHole()
+        {
+            // Insert 1, 3, 5
+            // Delete 3
+            // Insert 2
+
+            // arrange
+            byte[] b = new byte[8192];
+            Array.Clear(b, 0, b.Length);
+
+            fixed (byte* pointer = b)
+            {
+                var pageAccessor = new PageAccessor();
+
+                var p = new Page(pointer);
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
+
+                byte[] recordBytes9 = new byte[9];
+                Array.Clear(recordBytes9, 0, recordBytes9.Length);
+                BinaryUtil.WriteInt16(recordBytes9, 0, (short)recordBytes9.Length);
+                BinaryUtil.WriteInt16(recordBytes9, 2, 0);
+                recordBytes9[4] = 4;
+                recordBytes9[5] = 5;
+                recordBytes9[6] = 6;
+                recordBytes9[7] = 7;
+                recordBytes9[8] = 8;
+
+                byte[] recordBytes18 = new byte[18];
+                Array.Clear(recordBytes18, 0, recordBytes18.Length);
+                BinaryUtil.WriteInt16(recordBytes18, 0, (short)recordBytes18.Length);
+                BinaryUtil.WriteInt16(recordBytes18, 2, 0);
+                recordBytes18[4] = 4;
+                recordBytes18[5] = 5;
+                recordBytes18[6] = 6;
+                recordBytes18[7] = 7;
+                recordBytes18[8] = 8;
+                recordBytes18[9] = 9;
+                recordBytes18[10] = 10;
+                recordBytes18[11] = 11;
+                recordBytes18[12] = 12;
+                recordBytes18[13] = 13;
+                recordBytes18[14] = 14;
+                recordBytes18[15] = 15;
+                recordBytes18[16] = 16;
+                recordBytes18[17] = 17;
+
+                ClusteredKeyResolverDelegate<short> clusteredKeyResolver = (rBytes) =>
+                {
+                    var rKey = BinaryUtil.ReadInt16(rBytes.Slice(2));
+                    return rKey;
+                };
+
+                IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
+
+                void Insert9(short clusteredKey)
+                {
+                    BinaryUtil.WriteInt16(recordBytes9, 2, clusteredKey);
+                    pageAccessor.InsertRawBytes(p, recordBytes9, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                void Insert18(short clusteredKey)
+                {
+                    BinaryUtil.WriteInt16(recordBytes18, 2, clusteredKey);
+                    pageAccessor.InsertRawBytes(p, recordBytes18, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                void Delete(short clusteredKey)
+                {
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                short Slot(int index)
+                {
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
+                }
+
+                short ClusteredKey(short slot)
+                {
+                    BinaryUtil.ReadInt16(p.Pointer + slot).Should().Be(9);
+                    return BinaryUtil.ReadInt16(p.Pointer + slot + 2);
+                }
+
+                short ClusteredKey18(short slot)
+                {
+                    BinaryUtil.ReadInt16(p.Pointer + slot).Should().Be(18);
+                    return BinaryUtil.ReadInt16(p.Pointer + slot + 2);
+                }
+
+                bool Cleared(short slot)
+                {
+                    return BinaryUtil.AreRawBytesCleared(p.Pointer + slot, 9);
+                }
+
+                // act 1: Fill the page full
+                short clusteredKey = 1;
+                for (int ri = 0; ri < 736; ri++)
+                {
+                    Insert9(clusteredKey++);
+                }
+
+                // arange 1
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(105);
+                Slot(2).Should().Be(114);
+                Slot(3).Should().Be(123);
+                Slot(4).Should().Be(132);
+                ClusteredKey(96).Should().Be(1);
+                ClusteredKey(105).Should().Be(2);
+                ClusteredKey(114).Should().Be(3);
+                ClusteredKey(123).Should().Be(4);
+                ClusteredKey(132).Should().Be(5);
+                p.SlotCount.Should().Be(736);
+                p.FreeDataSize.Should().Be(0);
+                p.FreeDataStart.Should().Be(6720);
+
+                // act 2: Delete 2
+                Delete(2);
+
+                // arrange 2
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(114);
+                Slot(2).Should().Be(123);
+                Slot(3).Should().Be(132);
+                Slot(4).Should().Be(141);
+                ClusteredKey(96).Should().Be(1);
+                Cleared(105).Should().BeTrue();
+                ClusteredKey(114).Should().Be(3);
+                ClusteredKey(123).Should().Be(4);
+                ClusteredKey(132).Should().Be(5);
+                p.SlotCount.Should().Be(735);
+                p.FreeDataSize.Should().Be(11);
+                p.FreeDataStart.Should().Be(6720);
+
+                // act 3: Delete 4
+                Delete(4);
+
+                // arrange 3
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(114);
+                Slot(2).Should().Be(132);
+                Slot(3).Should().Be(141);
+                Slot(4).Should().Be(150);
+                ClusteredKey(96).Should().Be(1);
+                Cleared(105).Should().BeTrue();
+                ClusteredKey(114).Should().Be(3);
+                Cleared(123).Should().BeTrue();
+                ClusteredKey(132).Should().Be(5);
+                p.SlotCount.Should().Be(734);
+                p.FreeDataSize.Should().Be(22);
+                p.FreeDataStart.Should().Be(6720);
+
+                // act 4: Insert 737
+                Insert18(737);
+
+                // arrange 4
+                Slot(0).Should().Be(96);
+                Slot(1).Should().Be(105);
+                Slot(2).Should().Be(114);
+                Slot(3).Should().Be(123);
+                Slot(4).Should().Be(132);
+                Slot(734).Should().Be(6702);
+                ClusteredKey(96).Should().Be(1);
+                ClusteredKey(105).Should().Be(3);
+                ClusteredKey(114).Should().Be(5);
+                ClusteredKey(123).Should().Be(6);
+                ClusteredKey(132).Should().Be(7);
+                ClusteredKey18(6702).Should().Be(737);
+                p.SlotCount.Should().Be(735);
+                p.FreeDataSize.Should().Be(2);
+                p.FreeDataStart.Should().Be(6720);
             }
         }
     }
