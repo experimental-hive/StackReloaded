@@ -11,6 +11,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
         private short[] keys;
         private byte[] b;
         private byte[] recordOf9Bytes;
+        private PageAccessor pageAccessor;
 
         [GlobalSetup]
         public void GlobalSetup()
@@ -18,20 +19,35 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
             this.keys = new short[] { 1, 3, 5, 7, 9, 2, 4, 6, 8, 10 };
             this.b = new byte[8192];
             this.recordOf9Bytes = new byte[9];
+            this.pageAccessor = new PageAccessor();
         }
 
+        [IterationSetup]
+        public unsafe void IterationSetup()
+        {
+            short[] keys = this.keys;
+            byte[] b = this.b;
+            Array.Clear(b, 0, b.Length);
+            var pageAccessor = this.pageAccessor;
+
+            fixed (byte* pointer = b)
+            {
+                var p = new Page(pointer);
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
+            }
+        }
+        
         [Benchmark]
         public unsafe void InsertRawBytes()
         {
             short[] keys = this.keys;
             byte[] b = this.b;
-            Array.Clear(b, 0, b.Length);
+            var pageAccessor = this.pageAccessor;
 
             fixed (byte* pointer = b)
             {
                 var p = new Page(pointer);
-                p.FreeCount = Page.PageSize - PageHeader.SizeOf;
-                p.FreeData = PageHeader.SizeOf;
 
                 byte[] recordBytes = this.recordOf9Bytes;
                 Array.Clear(recordBytes, 0, recordBytes.Length);
@@ -55,7 +71,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
                 {
                     var clusteredKey = keys[i];
                     BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
-                    p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
             }
         }

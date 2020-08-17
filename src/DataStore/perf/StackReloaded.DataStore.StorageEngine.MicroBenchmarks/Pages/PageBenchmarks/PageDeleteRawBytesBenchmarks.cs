@@ -11,6 +11,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
         private short[] keys;
         private byte[] b;
         private byte[] recordOf9Bytes;
+        private PageAccessor pageAccessor;
 
         [GlobalSetup]
         public unsafe void GlobalSetup()
@@ -18,6 +19,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
             this.keys = new short[] { 1, 3, 5, 7, 9, 2, 4, 6, 8, 10 };
             this.b = new byte[8192];
             this.recordOf9Bytes = new byte[9];
+            this.pageAccessor = new PageAccessor();
         }
 
         [IterationSetup]
@@ -26,12 +28,13 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
             short[] keys = this.keys;
             byte[] b = this.b;
             Array.Clear(b, 0, b.Length);
+            var pageAccessor = this.pageAccessor;
 
             fixed (byte* pointer = b)
             {
                 var p = new Page(pointer);
-                p.FreeCount = Page.PageSize - PageHeader.SizeOf;
-                p.FreeData = PageHeader.SizeOf;
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
 
                 byte[] recordBytes = this.recordOf9Bytes;
                 Array.Clear(recordBytes, 0, recordBytes.Length);
@@ -55,7 +58,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
                 {
                     var clusteredKey = keys[i];
                     BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
-                    p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
             }
         }
@@ -65,6 +68,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
         {
             short[] keys = this.keys;
             byte[] b = this.b;
+            var pageAccessor = this.pageAccessor;
 
             fixed (byte* pointer = b)
             {
@@ -80,7 +84,7 @@ namespace StackReloaded.DataStore.StorageEngine.MicroBenchmarks.Pages.PageBenchm
                 for (int i = 0; i < keys.Length; i++)
                 {
                     var clusteredKey = keys[i];
-                    p.DeleteRawBytes(clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
             }
         }

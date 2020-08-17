@@ -8,8 +8,16 @@ using Xunit;
 
 namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 {
-    public class PageTests
-    {
+    public class PageAccessorTests
+    {       
+        [Fact]
+        public void StorageSizeMustBeLessOrEqualToMaximumPageStorageSize()
+        {
+            var maximumPageStorageSize = Page.PageSize - PageHeader.SizeOf - Page.SlotSize;
+
+            PageAccessor.DataPageMaxStorageSize.Should().BeLessOrEqualTo(maximumPageStorageSize);
+        }
+
         [Fact]
         public unsafe void InsertRawBytes()
         {
@@ -18,13 +26,15 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
             fixed (byte* pointer = b)
             {
+                var pageAccessor = new PageAccessor();
+
                 var p = new Page(pointer);
-                p.FreeCount = Page.PageSize - PageHeader.SizeOf;
-                p.FreeData = PageHeader.SizeOf;
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
 
                 p.SlotCount.Should().Be(0);
-                p.FreeCount.Should().Be(8096);
-                p.FreeData.Should().Be(96);
+                p.FreeDataSize.Should().Be(8096);
+                p.FreeDataStart.Should().Be(96);
 
                 short clusteredKey = 1;
                 byte[] recordBytes = new byte[9];
@@ -44,12 +54,17 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
                 IComparer<short> clusteredKeyComparer = Comparer<short>.Default;
 
-                BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey++);
-                p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                void InsertRawBytes(short clusteredKey)
+                {
+                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                }
+
+                InsertRawBytes(clusteredKey++);
 
                 p.SlotCount.Should().Be(1);
-                p.FreeCount.Should().Be(8085);
-                p.FreeData.Should().Be(105);
+                p.FreeDataSize.Should().Be(8085);
+                p.FreeDataStart.Should().Be(105);
                 BinaryUtil.ReadInt16(b, b.Length - 2).Should().Be(96);
 
                 var i = 96;
@@ -63,12 +78,11 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 b[i + 7].Should().Be(7);
                 b[i + 8].Should().Be(8);
 
-                BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey++);
-                p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                InsertRawBytes(clusteredKey++);
 
                 p.SlotCount.Should().Be(2);
-                p.FreeCount.Should().Be(8074);
-                p.FreeData.Should().Be(114);
+                p.FreeDataSize.Should().Be(8074);
+                p.FreeDataStart.Should().Be(114);
 
                 BinaryUtil.ReadInt16(b, b.Length - 2).Should().Be(96);
                 BinaryUtil.ReadInt16(b, b.Length - 4).Should().Be(105);
@@ -95,12 +109,11 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 b[i + 7].Should().Be(7);
                 b[i + 8].Should().Be(8);
 
-                BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey++);
-                p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                InsertRawBytes(clusteredKey++);
 
                 p.SlotCount.Should().Be(3);
-                p.FreeCount.Should().Be(8063);
-                p.FreeData.Should().Be(123);
+                p.FreeDataSize.Should().Be(8063);
+                p.FreeDataStart.Should().Be(123);
 
                 BinaryUtil.ReadInt16(b, b.Length - 2).Should().Be(96);
                 BinaryUtil.ReadInt16(b, b.Length - 4).Should().Be(105);
@@ -141,13 +154,12 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
                 for (int ri = 0; ri < 733; ri++)
                 {
-                    BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey++);
-                    p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    InsertRawBytes(clusteredKey++);
                 }
 
                 p.SlotCount.Should().Be(736);
-                p.FreeCount.Should().Be(0);
-                p.FreeData.Should().Be(6720);
+                p.FreeDataSize.Should().Be(0);
+                p.FreeDataStart.Should().Be(6720);
 
                 BinaryUtil.ReadInt16(b, b.Length - 2).Should().Be(96);
                 BinaryUtil.ReadInt16(b, b.Length - 4).Should().Be(105);
@@ -171,16 +183,16 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 for (int ri = 736 - 1; ri >= 0; ri--)
                 {
                     clusteredKey--;
-                    p.DeleteRawBytes(clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
 
                     p.SlotCount.Should().Be((short)ri);
-                    p.FreeCount.Should().Be((short)(8096 - ((2 + 9) * ri)));
-                    p.FreeData.Should().Be((short)(96 + 9 * ri));
+                    p.FreeDataSize.Should().Be((short)(8096 - ((2 + 9) * ri)));
+                    p.FreeDataStart.Should().Be((short)(96 + 9 * ri));
                 }
 
                 p.SlotCount.Should().Be(0);
-                p.FreeCount.Should().Be(8096);
-                p.FreeData.Should().Be(96);
+                p.FreeDataSize.Should().Be(8096);
+                p.FreeDataStart.Should().Be(96);
             }
         }
 
@@ -195,9 +207,11 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
             fixed (byte* pointer = b)
             {
+                var pageAccessor = new PageAccessor();
+
                 var p = new Page(pointer);
-                p.FreeCount = Page.PageSize - PageHeader.SizeOf;
-                p.FreeData = PageHeader.SizeOf;
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
 
                 byte[] recordBytes = new byte[9];
                 Array.Clear(recordBytes, 0, recordBytes.Length);
@@ -221,12 +235,12 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 void Insert(short clusteredKey)
                 {
                     BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
-                    p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
 
                 short Slot(int index)
                 {
-                    return BinaryUtil.ReadInt16(p.Pointer + p.RawSize - (index * 2) - 2);
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
                 }
 
                 short ClusteredKey(short slot)
@@ -241,7 +255,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 // assert 1
                 Slot(0).Should().Be(96);
                 ClusteredKey(96).Should().Be(1);
-                p.FreeData.Should().Be(105);
+                p.FreeDataStart.Should().Be(105);
 
                 // act 2: Insert 3
                 Insert(3);
@@ -251,7 +265,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Slot(1).Should().Be(105);
                 ClusteredKey(96).Should().Be(1);
                 ClusteredKey(105).Should().Be(3);
-                p.FreeData.Should().Be(114);
+                p.FreeDataStart.Should().Be(114);
 
                 // act 3: Insert 5
                 Insert(5);
@@ -263,7 +277,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(96).Should().Be(1);
                 ClusteredKey(105).Should().Be(3);
                 ClusteredKey(114).Should().Be(5);
-                p.FreeData.Should().Be(123);
+                p.FreeDataStart.Should().Be(123);
 
                 // act 4: Insert 7
                 Insert(7);
@@ -277,7 +291,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(105).Should().Be(3);
                 ClusteredKey(114).Should().Be(5);
                 ClusteredKey(123).Should().Be(7);
-                p.FreeData.Should().Be(132);
+                p.FreeDataStart.Should().Be(132);
 
                 // act 5: Insert 9
                 Insert(9);
@@ -293,7 +307,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(114).Should().Be(5);
                 ClusteredKey(123).Should().Be(7);
                 ClusteredKey(132).Should().Be(9);
-                p.FreeData.Should().Be(141);
+                p.FreeDataStart.Should().Be(141);
 
                 // act 6: Insert 2
                 Insert(2);
@@ -311,7 +325,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(123).Should().Be(7);
                 ClusteredKey(132).Should().Be(9);
                 ClusteredKey(141).Should().Be(2);
-                p.FreeData.Should().Be(150);
+                p.FreeDataStart.Should().Be(150);
 
                 // act 7: Insert 4
                 Insert(4);
@@ -331,7 +345,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(132).Should().Be(9);
                 ClusteredKey(141).Should().Be(2);
                 ClusteredKey(150).Should().Be(4);
-                p.FreeData.Should().Be(159);
+                p.FreeDataStart.Should().Be(159);
 
                 // act 8: Insert 6
                 Insert(6);
@@ -353,7 +367,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(141).Should().Be(2);
                 ClusteredKey(150).Should().Be(4);
                 ClusteredKey(159).Should().Be(6);
-                p.FreeData.Should().Be(168);
+                p.FreeDataStart.Should().Be(168);
 
                 // act 9: Insert 8
                 Insert(8);
@@ -377,7 +391,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(150).Should().Be(4);
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
-                p.FreeData.Should().Be(177);
+                p.FreeDataStart.Should().Be(177);
 
                 // act 10: Insert 10
                 Insert(10);
@@ -403,7 +417,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
             }
         }
 
@@ -420,9 +434,11 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
             fixed (byte* pointer = b)
             {
+                var pageAccessor = new PageAccessor();
+
                 var p = new Page(pointer);
-                p.FreeCount = Page.PageSize - PageHeader.SizeOf;
-                p.FreeData = PageHeader.SizeOf;
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
 
                 byte[] recordBytes = new byte[9];
                 Array.Clear(recordBytes, 0, recordBytes.Length);
@@ -446,17 +462,17 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 void Insert(short clusteredKey)
                 {
                     BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
-                    p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
 
                 void Delete(short clusteredKey)
                 {
-                    p.DeleteRawBytes(clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
 
                 short Slot(int index)
                 {
-                    return BinaryUtil.ReadInt16(p.Pointer + p.RawSize - (index * 2) - 2);
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
                 }
 
                 short ClusteredKey(short slot)
@@ -499,7 +515,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 2: Delete 3
                 Delete(3);
@@ -525,7 +541,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 3: Delete 5
                 Delete(5);
@@ -551,7 +567,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 4: Delete 7
                 Delete(7);
@@ -577,7 +593,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 5: Delete 9
                 Delete(9);
@@ -603,7 +619,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 6: Delete 2
                 Delete(2);
@@ -629,7 +645,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 7: Delete 4
                 Delete(4);
@@ -655,7 +671,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 8: Delete 6
                 Delete(6);
@@ -681,7 +697,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 ClusteredKey(168).Should().Be(8);
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 9: Delete 8
                 Delete(8);
@@ -707,7 +723,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 ClusteredKey(177).Should().Be(10);
-                p.FreeData.Should().Be(186);
+                p.FreeDataStart.Should().Be(186);
 
                 // act 10: Delete 10
                 Delete(10);
@@ -733,7 +749,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(96);
+                p.FreeDataStart.Should().Be(96);
             }
         }
 
@@ -750,9 +766,11 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
 
             fixed (byte* pointer = b)
             {
+                var pageAccessor = new PageAccessor();
+
                 var p = new Page(pointer);
-                p.FreeCount = Page.PageSize - PageHeader.SizeOf;
-                p.FreeData = PageHeader.SizeOf;
+                p.FreeDataSize = Page.PageSize - PageHeader.SizeOf;
+                p.FreeDataStart = PageHeader.SizeOf;
 
                 byte[] recordBytes = new byte[9];
                 Array.Clear(recordBytes, 0, recordBytes.Length);
@@ -776,17 +794,17 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 void Insert(short clusteredKey)
                 {
                     BinaryUtil.WriteInt16(recordBytes, 2, clusteredKey);
-                    p.InsertRawBytes(recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.InsertRawBytes(p, recordBytes, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
 
                 void Delete(short clusteredKey)
                 {
-                    p.DeleteRawBytes(clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
+                    pageAccessor.DeleteRawBytes(p, clusteredKey, clusteredKeyResolver, clusteredKeyComparer);
                 }
 
                 short Slot(int index)
                 {
-                    return BinaryUtil.ReadInt16(p.Pointer + p.RawSize - (index * 2) - 2);
+                    return BinaryUtil.ReadInt16(p.Pointer + Page.PageSize - (index * 2) - 2);
                 }
 
                 short ClusteredKey(short slot)
@@ -829,7 +847,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 ClusteredKey(168).Should().Be(8);
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(177);
+                p.FreeDataStart.Should().Be(177);
 
                 // act 2: Delete 8
                 Delete(8);
@@ -855,7 +873,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 ClusteredKey(159).Should().Be(6);
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(168);
+                p.FreeDataStart.Should().Be(168);
 
                 // act 3: Delete 6
                 Delete(6);
@@ -881,7 +899,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(159);
+                p.FreeDataStart.Should().Be(159);
 
                 // act 4: Delete 4
                 Delete(4);
@@ -907,7 +925,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(150);
+                p.FreeDataStart.Should().Be(150);
 
                 // act 5: Delete 2
                 Delete(2);
@@ -933,7 +951,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(141);
+                p.FreeDataStart.Should().Be(141);
 
                 // act 6: Delete 9
                 Delete(9);
@@ -959,7 +977,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(132);
+                p.FreeDataStart.Should().Be(132);
 
                 // act 7: Delete 7
                 Delete(7);
@@ -985,7 +1003,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(123);
+                p.FreeDataStart.Should().Be(123);
 
                 // act 8: Delete 5
                 Delete(5);
@@ -1011,7 +1029,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(114);
+                p.FreeDataStart.Should().Be(114);
 
                 // act 9: Delete 3
                 Delete(3);
@@ -1037,7 +1055,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(105);
+                p.FreeDataStart.Should().Be(105);
 
                 // act 10: Delete 1
                 Delete(1);
@@ -1063,7 +1081,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Pages
                 Cleared(159).Should().BeTrue();
                 Cleared(168).Should().BeTrue();
                 Cleared(177).Should().BeTrue();
-                p.FreeData.Should().Be(96);
+                p.FreeDataStart.Should().Be(96);
             }
         }
     }

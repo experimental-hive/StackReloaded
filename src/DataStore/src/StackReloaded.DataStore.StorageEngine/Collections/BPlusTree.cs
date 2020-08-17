@@ -6,7 +6,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
     public class BPlusTree<TKey, TValue> : IBPlusTree<TKey, TValue>, IInternalBPlusTree, IInternalBPlusTree<TKey, TValue>
     {
         [ThreadStatic]
-        private static readonly Stack<InternalNode> _stackParents = new Stack<InternalNode>();
+        private static readonly Stack<InternalNode> RentedStackParents = new Stack<InternalNode>();
 
         public BPlusTree(int order, IComparer<TKey> keyComparer)
         {
@@ -20,22 +20,22 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 throw new ArgumentNullException(nameof(keyComparer));
             }
 
-            Order = order;
-            KeyComparer = keyComparer;
+            this.Order = order;
+            this.KeyComparer = keyComparer;
         }
 
         public int Order { get; }
         public IComparer<TKey> KeyComparer { get; }
         internal INode RootNode { get; set; }
-        private int MaxKeyLength => Order - 1;
-        private int MinKeyLength => (int)Math.Ceiling((decimal)Order / 2);
+        private int MaxKeyLength => this.Order - 1;
+        private int MinKeyLength => (int)Math.Ceiling((decimal)this.Order / 2);
 
-        IBPlusTreeNode IInternalBPlusTree.RootNode => RootNode;
+        IBPlusTreeNode IInternalBPlusTree.RootNode => this.RootNode;
 
         public bool Seek(TKey key, out TValue value)
         {
-            var keyComparer = KeyComparer;
-            var node = RootNode;
+            var keyComparer = this.KeyComparer;
+            var node = this.RootNode;
             while (!node.IsLeaf)
             {
                 var internalNode = (InternalNode)node;
@@ -47,14 +47,14 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
         public void Insert(TKey key, TValue value)
         {
-            var node = RootNode;
+            var node = this.RootNode;
 
             if (node == null)
             {
-                RootNode = node = new LeafNode(MaxKeyLength);
+                this.RootNode = node = new LeafNode(this.MaxKeyLength);
             }
 
-            var stackParents = _stackParents;
+            var stackParents = RentedStackParents;
             stackParents.Clear();
 
             // Perform a search to determine what leaf node the new record should go into.
@@ -88,11 +88,11 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 // If the root splits, create a new root which has one key and two pointers.
                 if (stackParents.Count == 0)
                 {
-                    var newRootNode = new InternalNode(MaxKeyLength);
+                    var newRootNode = new InternalNode(this.MaxKeyLength);
                     newRootNode.Keys.Add(firstKeyOfRightNode);
                     newRootNode.NodePointers.Add(leftNodePoiner);
                     newRootNode.NodePointers.Add(rightNodePointer);
-                    RootNode = newRootNode;
+                    this.RootNode = newRootNode;
                     break;
                 }
 
@@ -114,14 +114,14 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
         public bool Delete(TKey key)
         {
-            var rootNode = RootNode;
+            var rootNode = this.RootNode;
             if (rootNode == null)
             {
                 return false;
             }
 
-            var keyComparer = KeyComparer;
-            var stackParents = _stackParents;
+            var keyComparer = this.KeyComparer;
+            var stackParents = RentedStackParents;
             stackParents.Clear();
             InternalNode parentNode = null;
             var node = rootNode;
@@ -154,7 +154,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 ReplaceKey(stackParents, key, toKey, keyComparer);
             }
 
-            var minKeyLength = MinKeyLength;
+            var minKeyLength = this.MinKeyLength;
 
             // Geen underflow van leaf node.
             if (leafNode.Keys.Count >= minKeyLength)
@@ -207,7 +207,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             if (stackParents.Count == 1 && parentNode.Keys.Count == 0)
             {
-                RootNode = leafNode;
+                this.RootNode = leafNode;
                 return true;
             }
 
@@ -260,7 +260,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 // Next level
                 if (stackParents.Count == 0 && parentNode.Keys.Count == 0)
                 {
-                    RootNode = currentNode;
+                    this.RootNode = currentNode;
                     break;
                 }
 
@@ -298,14 +298,14 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
         {
             public InternalNode()
             {
-                Keys = new List<TKey>();
-                NodePointers = new List<INode>();
+                this.Keys = new List<TKey>();
+                this.NodePointers = new List<INode>();
             }
 
             public InternalNode(int capacity)
             {
-                Keys = new List<TKey>(capacity);
-                NodePointers = new List<INode>(capacity + 1);
+                this.Keys = new List<TKey>(capacity);
+                this.NodePointers = new List<INode>(capacity + 1);
             }
 
             public bool IsLeaf => false;
@@ -314,13 +314,13 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             public List<INode> NodePointers { get; set; }
 
-            IReadOnlyList<TKey> IBPlusTreeInternalNode<TKey>.Keys => Keys;
+            IReadOnlyList<TKey> IBPlusTreeInternalNode<TKey>.Keys => this.Keys;
 
-            IReadOnlyList<IBPlusTreeNode> IBPlusTreeInternalNode<TKey>.NodePointers => NodePointers;
+            IReadOnlyList<IBPlusTreeNode> IBPlusTreeInternalNode<TKey>.NodePointers => this.NodePointers;
 
             public int GetIndexOfNodePointer(TKey key, IComparer<TKey> keyComparer)
             {
-                var keys = Keys;
+                var keys = this.Keys;
 
                 for (int i = 0; i < keys.Count; i++)
                 {
@@ -333,14 +333,14 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return keys.Count;
             }
 
-            public INode GetNodePointer(TKey key, BPlusTree<TKey, TValue> bplusTree) => NodePointers[GetIndexOfNodePointer(key, bplusTree.KeyComparer)];
+            public INode GetNodePointer(TKey key, BPlusTree<TKey, TValue> bplusTree) => this.NodePointers[GetIndexOfNodePointer(key, bplusTree.KeyComparer)];
 
             public (InternalNode NewRightInternalNode, TKey RemovedFirstKeyOfRightNode) AddEntry(TKey key, INode leftNodePointer, INode rightNodePointer, BPlusTree<TKey, TValue> bplusTree)
             {
                 var keyComparer = bplusTree.KeyComparer;
-                var keys = Keys;
+                var keys = this.Keys;
                 var keysCount = keys.Count;
-                var nodePointers = NodePointers;
+                var nodePointers = this.NodePointers;
                 var insertEntryAtIndex = keysCount;
                 var sameKey = false;
 
@@ -413,8 +413,8 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             private InternalNode Split()
             {
-                var keys = Keys;
-                var nodePointers = NodePointers;
+                var keys = this.Keys;
+                var nodePointers = this.NodePointers;
 
                 var entryCountToMove = keys.Count / 2;
                 var entryCountToKeep = keys.Count - entryCountToMove;
@@ -439,13 +439,13 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             public TKey MergeWithRightSibling(InternalNode rightSiblingInternalNode, InternalNode parentNode, int parentKeyIndex)
             {
                 var delKey = parentNode.Keys[parentKeyIndex];
-                Keys.Add(delKey);
+                this.Keys.Add(delKey);
                 for (var i = 0; i < rightSiblingInternalNode.Keys.Count; i++)
                 {
-                    Keys.Add(rightSiblingInternalNode.Keys[i]);
-                    NodePointers.Add(rightSiblingInternalNode.NodePointers[i]);
+                    this.Keys.Add(rightSiblingInternalNode.Keys[i]);
+                    this.NodePointers.Add(rightSiblingInternalNode.NodePointers[i]);
                 }
-                NodePointers.Add(rightSiblingInternalNode.NodePointers[^1]);
+                this.NodePointers.Add(rightSiblingInternalNode.NodePointers[^1]);
                 parentNode.Keys.RemoveAt(parentKeyIndex);
                 parentNode.NodePointers.RemoveAt(parentKeyIndex + 1);
                 return delKey;
@@ -461,14 +461,14 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
         {
             public LeafNode()
             {
-                Keys = new List<TKey>();
-                Values = new List<TValue>();
+                this.Keys = new List<TKey>();
+                this.Values = new List<TValue>();
             }
 
             public LeafNode(int capacity)
             {
-                Keys = new List<TKey>(capacity);
-                Values = new List<TValue>(capacity + 1);
+                this.Keys = new List<TKey>(capacity);
+                this.Values = new List<TValue>(capacity + 1);
             }
 
             public bool IsLeaf => true;
@@ -481,17 +481,17 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             public LeafNode NextLeaf { get; set; }
 
-            IReadOnlyList<TKey> IBPlusTreeLeafNode<TKey, TValue>.Keys => Keys;
+            IReadOnlyList<TKey> IBPlusTreeLeafNode<TKey, TValue>.Keys => this.Keys;
 
-            IReadOnlyList<TValue> IBPlusTreeLeafNode<TKey, TValue>.Values => Values;
+            IReadOnlyList<TValue> IBPlusTreeLeafNode<TKey, TValue>.Values => this.Values;
 
-            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.PreviousLeaf { get => PreviousLeaf; set => PreviousLeaf = (LeafNode)value; }
+            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.PreviousLeaf { get => this.PreviousLeaf; set => this.PreviousLeaf = (LeafNode)value; }
 
-            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.NextLeaf { get => NextLeaf; set => NextLeaf = (LeafNode)value; }
+            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.NextLeaf { get => this.NextLeaf; set => this.NextLeaf = (LeafNode)value; }
 
             public int GetIndex(TKey key, IComparer<TKey> keyComparer)
             {
-                var keys = Keys;
+                var keys = this.Keys;
 
                 for (int i = 0; i < keys.Count; i++)
                 {
@@ -504,7 +504,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return -1;
             }
 
-            public TValue GetValueAtIndex(int index) => Values[index];
+            public TValue GetValueAtIndex(int index) => this.Values[index];
 
             public bool TryGetValue(TKey key, IComparer<TKey> keyComparer, out TValue value)
             {
@@ -516,16 +516,16 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                     return false;
                 }
 
-                value = Values[index];
+                value = this.Values[index];
                 return true;
             }
 
             public LeafNode AddEntry(TKey key, TValue value, BPlusTree<TKey, TValue> bplusTree)
             {
                 var keyComparer = bplusTree.KeyComparer;
-                var keys = Keys;
+                var keys = this.Keys;
                 var keysCount = keys.Count;
-                var values = Values;
+                var values = this.Values;
                 var insertEntryAtIndex = keysCount;
 
                 for (int i = 0; i < keysCount; i++)
@@ -584,15 +584,15 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                     return false;
                 }
 
-                Keys.RemoveAt(index);
-                Values.RemoveAt(index);
+                this.Keys.RemoveAt(index);
+                this.Values.RemoveAt(index);
                 return true;
             }
 
             private LeafNode Split()
             {
-                var keys = Keys;
-                var values = Values;
+                var keys = this.Keys;
+                var values = this.Values;
 
                 var entryCountToMove = keys.Count / 2;
                 var entryCountToKeep = keys.Count - entryCountToMove;
@@ -612,13 +612,13 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
                 newNextLeaf.PreviousLeaf = this;
 
-                if (NextLeaf != null)
+                if (this.NextLeaf != null)
                 {
-                    newNextLeaf.NextLeaf = NextLeaf;
-                    NextLeaf.PreviousLeaf = newNextLeaf;
+                    newNextLeaf.NextLeaf = this.NextLeaf;
+                    this.NextLeaf.PreviousLeaf = newNextLeaf;
                 }
 
-                NextLeaf = newNextLeaf;
+                this.NextLeaf = newNextLeaf;
 
                 return newNextLeaf;
             }
@@ -628,15 +628,15 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 var firstKeyOfRightSiblingLeafNode = rightSiblingLeafNode.Keys[0];
                 for (int i = 0; i < rightSiblingLeafNode.Keys.Count; i++)
                 {
-                    Keys.Add(rightSiblingLeafNode.Keys[i]);
-                    Values.Add(rightSiblingLeafNode.Values[i]);
+                    this.Keys.Add(rightSiblingLeafNode.Keys[i]);
+                    this.Values.Add(rightSiblingLeafNode.Values[i]);
                 }
                 rightSiblingLeafNode.Keys.Clear();
                 rightSiblingLeafNode.Values.Clear();
-                NextLeaf = rightSiblingLeafNode.NextLeaf;
-                if (NextLeaf != null)
+                this.NextLeaf = rightSiblingLeafNode.NextLeaf;
+                if (this.NextLeaf != null)
                 {
-                    NextLeaf.PreviousLeaf = this;
+                    this.NextLeaf.PreviousLeaf = this;
                 }
                 rightSiblingLeafNode.NextLeaf = null;
                 rightSiblingLeafNode.PreviousLeaf = null;
