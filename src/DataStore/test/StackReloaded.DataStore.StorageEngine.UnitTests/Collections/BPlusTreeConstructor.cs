@@ -36,7 +36,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
 
             var listOfListOfKeys = ParseBPlusTreeData(data);
 
-            var stackOfParents = new Stack<BPlusTree<int, int>.InternalNode>();
+            var stackOfParents = new Stack<InternalNodeBuildState<BPlusTree<int, int>.InternalNode>>();
             BPlusTree<int, int>.LeafNode previousLeafNode = null;
 
             for (int i = 0, c = listOfListOfKeys.Count; i < c; i++)
@@ -49,23 +49,28 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
                     stackOfParents.Pop();
                 }
 
-                var parent = stackOfParents.Count == 0 ? null : stackOfParents.Peek();
+                var parentState = stackOfParents.Count == 0 ? null : stackOfParents.Peek();
 
                 if (i < c - 1 && listOfListOfKeys[i + 1][0] > currentLevel)
                 {
                     var internalNode = new BPlusTree<int, int>.InternalNode();
+                    internalNode.Entries.Add(Tuple.Create(default(int), default(BPlusTree<int, int>.INode)));
 
                     for (int k = 1; k < listOfKeys.Count; k++)
                     {
                         var key = listOfKeys[k];
-                        internalNode.Keys.Add(key);
+                        internalNode.Entries.Add(Tuple.Create(key, default(BPlusTree<int, int>.INode)));
                     }
 
-                    stackOfParents.Push(internalNode);
-
-                    if (parent != null)
+                    stackOfParents.Push(new InternalNodeBuildState<BPlusTree<int, int>.InternalNode>
                     {
-                        parent.NodePointers.Add(internalNode);
+                        Node = internalNode
+                    });
+
+                    if (parentState != null)
+                    {
+                        parentState.Node.Entries[parentState.NodePointerCount] = Tuple.Create<int, BPlusTree<int, int>.INode>(parentState.Node.Entries[parentState.NodePointerCount].Item1, internalNode);
+                        parentState.NodePointerCount++;
                     }
                     else
                     {
@@ -93,9 +98,10 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
                         leafNode.Values.Add(key * 100);
                     }
 
-                    if (parent != null)
+                    if (parentState != null)
                     {
-                        parent.NodePointers.Add(leafNode);
+                        parentState.Node.Entries[parentState.NodePointerCount] = Tuple.Create<int, BPlusTree<int, int>.INode>(parentState.Node.Entries[parentState.NodePointerCount].Item1, leafNode);
+                        parentState.NodePointerCount++;
                     }
                     else
                     {
@@ -223,6 +229,13 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             }
 
             return listOfListOfKeys;
+        }
+
+        private class InternalNodeBuildState<TNode>
+        {
+            public TNode Node { get; set; }
+
+            public int NodePointerCount { get; set; }
         }
     }
 }

@@ -12,7 +12,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
         internal abstract IInternalBPlusTree<TKey, TValue> CreateBPlusTree<TKey, TValue>(int order, IComparer<TKey> keyComparer);
 
         [Fact]
-        public void GivenOrderOf3WhenCreateBPlusTreeThenArgumentException()
+        public void GivenOrderOfLessThen3WhenCreateBPlusTreeThenArgumentException()
         {
             // arrange
             var order = 2;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StackReloaded.DataStore.StorageEngine.Collections
 {
@@ -89,9 +90,8 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 if (stackParents.Count == 0)
                 {
                     var newRootNode = new InternalNode(this.MaxKeyLength);
-                    newRootNode.Keys.Add(firstKeyOfRightNode);
-                    newRootNode.NodePointers.Add(leftNodePoiner);
-                    newRootNode.NodePointers.Add(rightNodePointer);
+                    newRootNode.Entries.Add(Tuple.Create(default(TKey), leftNodePoiner));
+                    newRootNode.Entries.Add(Tuple.Create(firstKeyOfRightNode, rightNodePointer));
                     this.RootNode = newRootNode;
                     break;
                 }
@@ -130,7 +130,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             {
                 parentNode = (InternalNode)node;
                 nodePointerIndex = parentNode.GetIndexOfNodePointer(key, keyComparer);
-                node = parentNode.NodePointers[nodePointerIndex];
+                node = parentNode.Entries[nodePointerIndex].Item2;
 
                 stackParents.Push(parentNode);
             }
@@ -162,7 +162,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return true;
             }
 
-            var rightSiblingLeafNode = nodePointerIndex == -1 || nodePointerIndex + 1 == parentNode.NodePointers.Count ? null : (LeafNode)parentNode.NodePointers[nodePointerIndex + 1];
+            var rightSiblingLeafNode = nodePointerIndex == -1 || nodePointerIndex + 1 == parentNode.Entries.Count ? null : (LeafNode)parentNode.Entries[nodePointerIndex + 1].Item2;
 
             // Indien mogelijk, steel eerste entry van right sibling.
             if (rightSiblingLeafNode != null && rightSiblingLeafNode.Keys.Count > minKeyLength)
@@ -177,7 +177,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 return true;
             }
 
-            var leftSiblingLeafNode = nodePointerIndex == -1 || nodePointerIndex == 0 ? null : (LeafNode)parentNode.NodePointers[nodePointerIndex - 1];
+            var leftSiblingLeafNode = nodePointerIndex == -1 || nodePointerIndex == 0 ? null : (LeafNode)parentNode.Entries[nodePointerIndex - 1].Item2;
 
             // Indien mogelijk, steel laatste entry van left sibling.
             if (leftSiblingLeafNode != null && leftSiblingLeafNode.Keys.Count > minKeyLength)
@@ -205,7 +205,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 delKey = leftSiblingLeafNode.MergeWithRightSibling(leafNode, parentNode, keyComparer);
             }
 
-            if (stackParents.Count == 1 && parentNode.Keys.Count == 0)
+            if (stackParents.Count == 1 && parentNode.Entries.Count == 0)
             {
                 this.RootNode = leafNode;
                 return true;
@@ -213,36 +213,36 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
             var currentNode = stackParents.Pop();
 
-            while (currentNode.Keys.Count < minKeyLength && stackParents.Count > 0)
+            while (currentNode.Entries.Count - 1 < minKeyLength && stackParents.Count > 0)
             {
                 parentNode = stackParents.Pop();
                 nodePointerIndex = parentNode.GetIndexOfNodePointer(delKey, keyComparer);
 
-                var rightSiblingInternalNode = nodePointerIndex == -1 || nodePointerIndex + 1 == parentNode.NodePointers.Count ? null : (InternalNode)parentNode.NodePointers[nodePointerIndex + 1];
+                var rightSiblingInternalNode = nodePointerIndex == -1 || nodePointerIndex + 1 == parentNode.Entries.Count ? null : (InternalNode)parentNode.Entries[nodePointerIndex + 1].Item2;
 
                 // Indien mogelijk, steel eerste entry van right sibling.
-                if (rightSiblingInternalNode != null && rightSiblingInternalNode.Keys.Count > minKeyLength)
+                if (rightSiblingInternalNode != null && rightSiblingInternalNode.Entries.Count - 1 > minKeyLength)
                 {
-                    currentNode.Keys.Add(parentNode.Keys[nodePointerIndex]);
-                    parentNode.Keys[nodePointerIndex] = rightSiblingInternalNode.Keys[0];
-                    currentNode.NodePointers.Add(rightSiblingInternalNode.NodePointers[0]);
+                    var parentNodeEntry = parentNode.Entries[nodePointerIndex + 1];
+                    currentNode.Entries.Add(Tuple.Create(parentNodeEntry.Item1, rightSiblingInternalNode.Entries[0].Item2));
+                    parentNode.Entries[nodePointerIndex + 1] = Tuple.Create(rightSiblingInternalNode.Entries[1].Item1, parentNodeEntry.Item2);
                     rightSiblingLeafNode.Keys.RemoveAt(0);
                     rightSiblingLeafNode.Values.RemoveAt(0);
                     break;
                 }
 
-                var leftSiblingInternalNode = nodePointerIndex == -1 || nodePointerIndex == 0 ? null : (InternalNode)parentNode.NodePointers[nodePointerIndex - 1];
+                var leftSiblingInternalNode = nodePointerIndex == -1 || nodePointerIndex == 0 ? null : (InternalNode)parentNode.Entries[nodePointerIndex - 1].Item2;
 
                 // Indien mogelijk, steel laatste entry van left sibling.
-                if (leftSiblingInternalNode != null && leftSiblingInternalNode.Keys.Count > minKeyLength)
+                if (leftSiblingInternalNode != null && leftSiblingInternalNode.Entries.Count - 1 > minKeyLength)
                 {
-                    currentNode.Keys.Insert(0, parentNode.Keys[nodePointerIndex - 1]);
-                    var indexOfLastKey = leftSiblingInternalNode.Keys.Count - 1;
-                    var indexOfLastValue = leftSiblingInternalNode.NodePointers.Count - 1;
-                    parentNode.Keys[nodePointerIndex - 1] = leftSiblingInternalNode.Keys[indexOfLastKey];
-                    currentNode.NodePointers.Insert(0, leftSiblingInternalNode.NodePointers[indexOfLastValue]);
-                    leftSiblingInternalNode.Keys.RemoveAt(indexOfLastKey);
-                    leftSiblingInternalNode.NodePointers.RemoveAt(indexOfLastValue);
+                    var parentNodeEntry = parentNode.Entries[nodePointerIndex];
+                    var indexOfLastEntry = leftSiblingInternalNode.Entries.Count - 1;
+                    var lastEntry = leftSiblingInternalNode.Entries[indexOfLastEntry];
+                    currentNode.Entries[0] = Tuple.Create(parentNodeEntry.Item1, currentNode.Entries[0].Item2);
+                    currentNode.Entries.Insert(0, Tuple.Create(default(TKey), lastEntry.Item2));
+                    parentNode.Entries[nodePointerIndex] = Tuple.Create(lastEntry.Item1, parentNodeEntry.Item2);
+                    leftSiblingInternalNode.Entries.RemoveAt(indexOfLastEntry);
                     break;
                 }
 
@@ -258,7 +258,7 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 }
 
                 // Next level
-                if (stackParents.Count == 0 && parentNode.Keys.Count == 0)
+                if (stackParents.Count == 0 && parentNode.Entries.Count == 0)
                 {
                     this.RootNode = currentNode;
                     break;
@@ -272,19 +272,19 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
 
         private static void ReplaceKey(Stack<InternalNode> stack, TKey fromKey, TKey toKey, IComparer<TKey> keyComparer)
         {
-            foreach (var stackEntry in stack)
+            foreach (var internalNode in stack)
             {
-                var keys = stackEntry.Keys;
+                var entries = internalNode.Entries;
 
                 // binary search
-                for (int i = 0; i < keys.Count; i++)
+                for (int i = 0; i < entries.Count; i++)
                 {
-                    if (keyComparer.Compare(keys[i], fromKey) != 0)
+                    if (keyComparer.Compare(fromKey, entries[i].Item1) != 0)
                     {
                         continue;
                     }
 
-                    keys[i] = toKey;
+                    entries[i] = Tuple.Create(toKey, entries[i].Item2);
                     break;
                 }
             }
@@ -298,105 +298,94 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
         {
             public InternalNode()
             {
-                this.Keys = new List<TKey>();
-                this.NodePointers = new List<INode>();
+                this.Entries = new List<Tuple<TKey, INode>>();
             }
 
             public InternalNode(int capacity)
             {
-                this.Keys = new List<TKey>(capacity);
-                this.NodePointers = new List<INode>(capacity + 1);
+                this.Entries = new List<Tuple<TKey, INode>>(capacity + 1);
             }
 
             public bool IsLeaf => false;
 
-            public List<TKey> Keys { get; set; }
+            public List<Tuple<TKey, INode>> Entries { get; set; }
 
-            public List<INode> NodePointers { get; set; }
+            IReadOnlyList<TKey> IBPlusTreeInternalNode<TKey>.Keys => this.Entries.Skip(1).Select(x => x.Item1).ToList().AsReadOnly();
 
-            IReadOnlyList<TKey> IBPlusTreeInternalNode<TKey>.Keys => this.Keys;
-
-            IReadOnlyList<IBPlusTreeNode> IBPlusTreeInternalNode<TKey>.NodePointers => this.NodePointers;
+            IReadOnlyList<IBPlusTreeNode> IBPlusTreeInternalNode<TKey>.NodePointers => this.Entries.Select(x => x.Item2).ToList().AsReadOnly();
 
             public int GetIndexOfNodePointer(TKey key, IComparer<TKey> keyComparer)
             {
-                var keys = this.Keys;
+                var entries = this.Entries;
 
-                for (int i = 0; i < keys.Count; i++)
+                for (int i = 1; i < entries.Count; i++)
                 {
-                    if (keyComparer.Compare(key, keys[i]) == -1)
+                    if (keyComparer.Compare(key, entries[i].Item1) == -1)
                     {
-                        return i;
+                        return i - 1;
                     }
                 }
 
-                return keys.Count;
+                return entries.Count - 1;
             }
 
-            public INode GetNodePointer(TKey key, BPlusTree<TKey, TValue> bplusTree) => this.NodePointers[GetIndexOfNodePointer(key, bplusTree.KeyComparer)];
+            public INode GetNodePointer(TKey key, BPlusTree<TKey, TValue> bplusTree) => this.Entries[GetIndexOfNodePointer(key, bplusTree.KeyComparer)].Item2;
 
             public (InternalNode NewRightInternalNode, TKey RemovedFirstKeyOfRightNode) AddEntry(TKey key, INode leftNodePointer, INode rightNodePointer, BPlusTree<TKey, TValue> bplusTree)
             {
                 var keyComparer = bplusTree.KeyComparer;
-                var keys = this.Keys;
-                var keysCount = keys.Count;
-                var nodePointers = this.NodePointers;
-                var insertEntryAtIndex = keysCount;
+                var entries = this.Entries;
+                var insertEntryAtIndex = entries.Count - 1;
                 var sameKey = false;
 
-                for (var i = 0; i < keysCount; i++)
+                for (var i = 1; i < entries.Count; i++)
                 {
-                    var compareResult = keyComparer.Compare(key, keys[i]);
+                    var compareResult = keyComparer.Compare(key, entries[i].Item1);
 
                     if (compareResult == 0)
                     {
                         sameKey = true;
-                        insertEntryAtIndex = i;
+                        insertEntryAtIndex = i - 1;
                         break;
                     }
 
                     if (compareResult == -1)
                     {
-                        insertEntryAtIndex = i;
+                        insertEntryAtIndex = i - 1;
                         break;
                     }
                 }
 
                 if (sameKey)
                 {
-                    nodePointers[insertEntryAtIndex] = leftNodePointer;
-                    nodePointers[insertEntryAtIndex + 1] = rightNodePointer;
+                    entries[insertEntryAtIndex] = Tuple.Create(entries[insertEntryAtIndex].Item1, leftNodePointer);
+                    entries[insertEntryAtIndex + 1] = Tuple.Create(entries[insertEntryAtIndex + 1].Item1, rightNodePointer);
                 }
-                else if (keys.Count == 0)
+                else if (entries.Count == 0)
                 {
-                    keys.Add(key);
-                    nodePointers.Add(leftNodePointer);
-                    nodePointers.Add(rightNodePointer);
+                    entries.Add(Tuple.Create(default(TKey), leftNodePointer));
+                    entries.Add(Tuple.Create(key, rightNodePointer));
                 }
-                else if (insertEntryAtIndex == keysCount)
+                else if (insertEntryAtIndex == entries.Count - 1)
                 {
-                    keys.Add(key);
-                    nodePointers[insertEntryAtIndex] = leftNodePointer;
-                    nodePointers.Add(rightNodePointer);
+                    entries[insertEntryAtIndex] = Tuple.Create(entries[insertEntryAtIndex].Item1, leftNodePointer);
+                    entries.Add(Tuple.Create(key, rightNodePointer));
                 }
                 else if (insertEntryAtIndex != -1)
                 {
-                    keys.Add(keys[keysCount - 1]);
-                    nodePointers.Add(nodePointers[keysCount]);
+                    entries.Add(entries[entries.Count - 1]);
 
-                    for (var i = keysCount - 1; i > insertEntryAtIndex; i--)
+                    for (var i = entries.Count - 2; i > insertEntryAtIndex; i--)
                     {
-                        keys[i] = keys[i - 1];
-                        nodePointers[i + 1] = nodePointers[i];
+                        entries[i + 1] = entries[i];
                     }
 
-                    keys[insertEntryAtIndex] = key;
-                    nodePointers[insertEntryAtIndex] = leftNodePointer;
-                    nodePointers[insertEntryAtIndex + 1] = rightNodePointer;
+                    entries[insertEntryAtIndex] = Tuple.Create(entries[insertEntryAtIndex].Item1, leftNodePointer);
+                    entries[insertEntryAtIndex + 1] = Tuple.Create(key, rightNodePointer);
                 }
 
                 // Geen overflow van internal node.
-                if (keys.Count <= bplusTree.MaxKeyLength)
+                if (entries.Count - 1 <= bplusTree.MaxKeyLength)
                 {
                     return (null, default);
                 }
@@ -404,50 +393,44 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 var newRightInternalNode = Split();
 
                 // The key that will gets pushed to the parent node needs to be removed from the original node.
-                var removedFirstKeyOfRightNode = newRightInternalNode.Keys[0];
-                newRightInternalNode.Keys.RemoveAt(0);
-                newRightInternalNode.NodePointers.RemoveAt(0);
+                var removedFirstKeyOfRightNode = newRightInternalNode.Entries[1].Item1;
+                newRightInternalNode.Entries.RemoveAt(0);
+                newRightInternalNode.Entries[0] = Tuple.Create(default(TKey), newRightInternalNode.Entries[0].Item2);
 
                 return (newRightInternalNode, removedFirstKeyOfRightNode);
             }
 
             private InternalNode Split()
             {
-                var keys = this.Keys;
-                var nodePointers = this.NodePointers;
+                var entries = this.Entries;
 
-                var entryCountToMove = keys.Count / 2;
-                var entryCountToKeep = keys.Count - entryCountToMove;
+                var entryCountToMove = (entries.Count - 1) / 2;
+                var entryCountToKeep = (entries.Count - 1) - entryCountToMove;
 
-                var newRightInternalNode = new InternalNode(keys.Capacity);
-                for (int i = entryCountToKeep; i < keys.Count; i++)
+                var newRightInternalNode = new InternalNode(entries.Capacity - 1);
+                for (int i = entryCountToKeep; i < entries.Count; i++)
                 {
-                    newRightInternalNode.Keys.Add(keys[i]);
-                    newRightInternalNode.NodePointers.Add(nodePointers[i]);
+                    newRightInternalNode.Entries.Add(entries[i]);
                 }
-                newRightInternalNode.NodePointers.Add(nodePointers[^1]);
+                newRightInternalNode.Entries[0] = Tuple.Create(default(TKey), newRightInternalNode.Entries[0].Item2);
 
                 for (int i = entryCountToMove; i > 0; i--)
                 {
-                    keys.RemoveAt(keys.Count - 1);
-                    nodePointers.RemoveAt(nodePointers.Count - 1);
+                    entries.RemoveAt(entries.Count - 1);
                 }
-
                 return newRightInternalNode;
             }
 
             public TKey MergeWithRightSibling(InternalNode rightSiblingInternalNode, InternalNode parentNode, int parentKeyIndex)
             {
-                var delKey = parentNode.Keys[parentKeyIndex];
-                this.Keys.Add(delKey);
-                for (var i = 0; i < rightSiblingInternalNode.Keys.Count; i++)
+                var delKey = parentNode.Entries[parentKeyIndex + 1].Item1;
+                var entries = this.Entries;
+                entries.Add(Tuple.Create(delKey, rightSiblingInternalNode.Entries[0].Item2));
+                for (var i = 1; i < rightSiblingInternalNode.Entries.Count; i++)
                 {
-                    this.Keys.Add(rightSiblingInternalNode.Keys[i]);
-                    this.NodePointers.Add(rightSiblingInternalNode.NodePointers[i]);
+                    entries.Add(rightSiblingInternalNode.Entries[i]);
                 }
-                this.NodePointers.Add(rightSiblingInternalNode.NodePointers[^1]);
-                parentNode.Keys.RemoveAt(parentKeyIndex);
-                parentNode.NodePointers.RemoveAt(parentKeyIndex + 1);
+                parentNode.Entries.RemoveAt(parentKeyIndex + 1);
                 return delKey;
             }
 
@@ -641,9 +624,9 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 rightSiblingLeafNode.NextLeaf = null;
                 rightSiblingLeafNode.PreviousLeaf = null;
                 var keyIndex = -1;
-                for (var i = 0; i < parentNode.Keys.Count; i++)
+                for (var i = 1; i < parentNode.Entries.Count; i++)
                 {
-                    if (keyComparer.Compare(parentNode.Keys[i], firstKeyOfRightSiblingLeafNode) == 0)
+                    if (keyComparer.Compare(parentNode.Entries[i].Item1, firstKeyOfRightSiblingLeafNode) == 0)
                     {
                         keyIndex = i;
                         break;
@@ -651,10 +634,13 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 }
                 if (keyIndex != -1)
                 {
-                    parentNode.Keys.RemoveAt(keyIndex);
-                    parentNode.NodePointers.RemoveAt(keyIndex + 1);
-                }
+                    parentNode.Entries.RemoveAt(keyIndex);
 
+                    if (keyIndex == 0)
+                    {
+                        parentNode.Entries[0] = Tuple.Create(default(TKey), parentNode.Entries[0].Item2);
+                    }
+                }
                 return firstKeyOfRightSiblingLeafNode;
             }
 
