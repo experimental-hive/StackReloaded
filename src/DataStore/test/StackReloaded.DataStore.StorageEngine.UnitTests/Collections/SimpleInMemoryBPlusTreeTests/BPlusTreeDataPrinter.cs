@@ -3,11 +3,11 @@ using System.Linq;
 using System.Text;
 using StackReloaded.DataStore.StorageEngine.Collections;
 
-namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
+namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections.SimpleInMemoryBPlusTreeTests
 {
     public static class BPlusTreeDataPrinter
     {
-        internal static string PrintData<TKey, TValue>(IInternalBPlusTree<TKey, TValue> bplusTree)
+        internal static string PrintData<TKey, TValue>(SimpleInMemoryBPlusTree<TKey, TValue> bplusTree)
         {
             if (bplusTree == null)
             {
@@ -23,14 +23,14 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             return sb.ToString();
         }
 
-        private static void PrintNode<TKey, TValue>(StringBuilder sb, int level, IBPlusTreeNode node)
+        private static void PrintNode<TKey, TValue>(StringBuilder sb, int level, SimpleInMemoryBPlusTree<TKey, TValue>.INode node)
         {
             switch (node)
             {
-                case IBPlusTreeInternalNode<TKey> internalNode:
+                case SimpleInMemoryBPlusTree<TKey, TValue>.InternalNode internalNode:
                     PrintInternalNode<TKey, TValue>(sb, level, internalNode);
                     break;
-                case IBPlusTreeLeafNode<TKey, TValue> leafNode:
+                case SimpleInMemoryBPlusTree<TKey, TValue>.LeafNode leafNode:
                     PrintLeafNode(sb, level, leafNode);
                     break;
                 default:
@@ -38,7 +38,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             }
         }
 
-        private static void PrintInternalNode<TKey, TValue>(StringBuilder sb, int level, IBPlusTreeInternalNode<TKey> internalNode)
+        private static void PrintInternalNode<TKey, TValue>(StringBuilder sb, int level, SimpleInMemoryBPlusTree<TKey, TValue>.InternalNode internalNode)
         {
             if (internalNode == null)
             {
@@ -79,7 +79,7 @@ namespace StackReloaded.DataStore.StorageEngine.UnitTests.Collections
             }
         }
 
-        private static void PrintLeafNode<TKey, TValue>(StringBuilder sb, int level, IBPlusTreeLeafNode<TKey, TValue> leafNode)
+        private static void PrintLeafNode<TKey, TValue>(StringBuilder sb, int level, SimpleInMemoryBPlusTree<TKey, TValue>.LeafNode leafNode)
         {
             if (leafNode == null)
             {

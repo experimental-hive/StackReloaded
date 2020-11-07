@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace StackReloaded.DataStore.StorageEngine.Collections
 {
-    public class BPlusTree<TKey, TValue> : IBPlusTree<TKey, TValue>, IInternalBPlusTree, IInternalBPlusTree<TKey, TValue>
+    public class BPlusTree<TKey, TValue>
     {
         [ThreadStatic]
         private static readonly Stack<InternalNode> RentedStackParents = new Stack<InternalNode>();
@@ -30,8 +29,6 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
         internal INode RootNode { get; set; }
         private int MaxKeyLength => this.Order - 1;
         private int MinKeyLength => (int)Math.Ceiling((decimal)this.Order / 2);
-
-        IBPlusTreeNode IInternalBPlusTree.RootNode => this.RootNode;
 
         public bool Seek(TKey key, out TValue value)
         {
@@ -290,11 +287,12 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             }
         }
 
-        internal interface INode : IBPlusTreeNode
+        internal interface INode
         {
+            bool IsLeaf { get; }
         }
 
-        internal class InternalNode : INode, IBPlusTreeNode, IBPlusTreeInternalNode<TKey>
+        internal class InternalNode : INode
         {
             public InternalNode()
             {
@@ -309,10 +307,6 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             public bool IsLeaf => false;
 
             public List<Tuple<TKey, INode>> Entries { get; set; }
-
-            IReadOnlyList<TKey> IBPlusTreeInternalNode<TKey>.Keys => this.Entries.Skip(1).Select(x => x.Item1).ToList().AsReadOnly();
-
-            IReadOnlyList<IBPlusTreeNode> IBPlusTreeInternalNode<TKey>.NodePointers => this.Entries.Select(x => x.Item2).ToList().AsReadOnly();
 
             public int GetIndexOfNodePointer(TKey key, IComparer<TKey> keyComparer)
             {
@@ -433,14 +427,9 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                 parentNode.Entries.RemoveAt(parentKeyIndex + 1);
                 return delKey;
             }
-
-            (IBPlusTreeInternalNode<TKey> NewRightInternalNode, TKey RemovedFirstKeyOfRightNode) IBPlusTreeInternalNode<TKey>.AddEntry(TKey key, IBPlusTreeNode leftNodePointer, IBPlusTreeNode rightNodePointer, IInternalBPlusTree bplusTree)
-            {
-                return AddEntry(key, (INode)leftNodePointer, (INode)rightNodePointer, (BPlusTree<TKey, TValue>)bplusTree);
-            }
         }
 
-        internal class LeafNode : INode, IBPlusTreeNode, IBPlusTreeLeafNode<TKey, TValue>
+        internal class LeafNode : INode
         {
             public LeafNode()
             {
@@ -463,14 +452,6 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
             public LeafNode PreviousLeaf { get; set; }
 
             public LeafNode NextLeaf { get; set; }
-
-            IReadOnlyList<TKey> IBPlusTreeLeafNode<TKey, TValue>.Keys => this.Keys;
-
-            IReadOnlyList<TValue> IBPlusTreeLeafNode<TKey, TValue>.Values => this.Values;
-
-            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.PreviousLeaf { get => this.PreviousLeaf; set => this.PreviousLeaf = (LeafNode)value; }
-
-            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.NextLeaf { get => this.NextLeaf; set => this.NextLeaf = (LeafNode)value; }
 
             public int GetIndex(TKey key, IComparer<TKey> keyComparer)
             {
@@ -642,11 +623,6 @@ namespace StackReloaded.DataStore.StorageEngine.Collections
                     }
                 }
                 return firstKeyOfRightSiblingLeafNode;
-            }
-
-            IBPlusTreeLeafNode<TKey, TValue> IBPlusTreeLeafNode<TKey, TValue>.AddEntry(TKey key, TValue value, IInternalBPlusTree bplusTree)
-            {
-                return AddEntry(key, value, (BPlusTree<TKey, TValue>)bplusTree);
             }
         }
     }
